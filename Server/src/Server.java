@@ -1,86 +1,77 @@
-import java.io.*;
 import java.net.*;
+import java.io.*;
 import java.util.*;
 
-public class Server {
+ServerSocket serverSocket;
+private List<Socket> clients = new ArrayList<>();
 
-    private static Set<ClientHandler> clientHandlers = new HashSet<>();
+boolean running;
+int port = 6767;
 
-    public static void main(String[] args) {
-        int port = 12345; // Default port, you can change this
+void main() {
+    try {
+        startServer();
+        updateServer();
+        stopServer();
+    } catch (IOException e) {
+        System.out.println(e.getMessage());
+    }
+}
 
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Server started on port " + port);
+void startServer() throws IOException {
+    serverSocket = new ServerSocket(port);
+    running = true;
+    System.out.println("Server started on port " + port);
+}
 
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                ClientHandler handler = new ClientHandler(clientSocket);
-                clientHandlers.add(handler);
-                new Thread(handler).start();
-            }
+void updateServer() throws IOException {
+    while (running) {
+        Socket client = serverSocket.accept();
+        clients.add(client);
+        System.out.println("Client connected: " + client.getRemoteSocketAddress());
 
-        } catch (IOException e) {
-            System.err.println("Server error: " + e.getMessage());
-        }
+        // spawn a thread for each client
+        new Thread(() -> handleClient(client)).start();
+    }
+}
+
+void stopServer() throws IOException {
+    running = false;
+
+    for (Socket c : clients) {
+        if (!c.isClosed()) c.close();
     }
 
-    // Broadcast message to all clients
-    public static void broadcast(String message, ClientHandler exclude) {
-        for (ClientHandler client : clientHandlers) {
-            if (client != exclude) {
-                client.sendMessage(message);
-            }
-        }
+    if (serverSocket != null && !serverSocket.isClosed()) {
+        serverSocket.close();
     }
 
-    // Remove client from the set
-    public static void removeClient(ClientHandler client) {
-        clientHandlers.remove(client);
+    System.out.println("Server stopped");
+}
+
+void handleClient(Socket client) {
+    try (
+            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+    ) {
+        String line;
+        while ((line = in.readLine()) != null) {
+            broadcast(line, client);
+        }
+    } catch (IOException e) {
+        System.out.println("User disconnected from your channel");
+    } finally {
+        try {
+            clients.remove(client);
+            client.close();
+        } catch (IOException ignored) {}
     }
+}
 
-    // Inner class to handle each client
-    static class ClientHandler implements Runnable {
-        private Socket socket;
-        private PrintWriter out;
-        private String name;
-
-        public ClientHandler(Socket socket) {
-            this.socket = socket;
-        }
-
-        public void sendMessage(String message) {
-            out.println(message);
-        }
-
-        @Override
-        public void run() {
-            try (
-                    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))
-            ) {
-                out = new PrintWriter(socket.getOutputStream(), true);
-
-                // First message is the client's name
-                name = in.readLine();
-                System.out.println(name + " has connected.");
-                broadcast(name + " has joined the chat.", this);
-
-                String message;
-                while ((message = in.readLine()) != null) {
-                    System.out.println(name + ": " + message);
-                    broadcast(name + ": " + message, this);
-                }
-
-            } catch (IOException e) {
-                System.out.println(name + " disconnected.");
-            } finally {
-                removeClient(this);
-                broadcast(name + " has left the chat.", this);
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    // Ignore
-                }
-            }
-        }
+void broadcast(String msg, Socket sender) {
+    for (Socket c : clients) {
+        try {
+            PrintWriter out = new PrintWriter(c.getOutputStream(), true);
+            out.println(msg);
+        } catch (IOException ignore) {}
     }
 }
