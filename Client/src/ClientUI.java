@@ -106,11 +106,11 @@ public class ClientUI {
             socket = new Socket(host, port);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
-
-            out.println("// User joined your channel: "+name);
+            out.println(name);
 
             showChatUI();
             listenForMessages();
+            chatArea.append("// Connected\n");
 
         } catch (IOException e) {
             JOptionPane.showMessageDialog(null, "Failed to resolve hostname: "+host+":"+port);
@@ -142,14 +142,14 @@ public class ClientUI {
         String text = messageField.getText().trim();
         if (text.isEmpty()) return;
 
-        out.println("[" + name + "]: " + text);
+        out.println(text);
         messageField.setText("");
     }
 
 
     //Not done yet, triggerd by disconnect button
     private void disconnect(){
+        chatArea.append("// Disconnected\n");
         System.exit(0);
-        out.println("// User disconnected from your channel: "+name);
     }
 }

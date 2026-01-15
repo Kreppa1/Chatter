@@ -3,7 +3,8 @@ import java.io.*;
 import java.util.*;
 
 ServerSocket serverSocket;
-private List<Socket> clients = new ArrayList<>();
+private List<Socket> clientss = new ArrayList<>();
+private List<ClientObject> clients = new ArrayList<>();
 
 boolean running;
 int port = 6767;
@@ -26,9 +27,10 @@ void startServer() throws IOException {
 
 void updateServer() throws IOException {
     while (running) {
-        Socket client = serverSocket.accept();
+        Socket clientS = serverSocket.accept();
+        ClientObject client = new ClientObject(clientS, null);
         clients.add(client);
-        System.out.println("Client connected: " + client.getRemoteSocketAddress());
+        System.out.println("Client connected: " + client.clientSocket.getRemoteSocketAddress());
 
         // spawn a thread for each client
         new Thread(() -> handleClient(client)).start();
@@ -38,8 +40,8 @@ void updateServer() throws IOException {
 void stopServer() throws IOException {
     running = false;
 
-    for (Socket c : clients) {
-        if (!c.isClosed()) c.close();
+    for (ClientObject c : clients) {
+        if (!c.clientSocket.isClosed()) c.clientSocket.close();
     }
 
     if (serverSocket != null && !serverSocket.isClosed()) {
@@ -49,29 +51,58 @@ void stopServer() throws IOException {
     System.out.println("Server stopped");
 }
 
-void handleClient(Socket client) {
+void handleClient(ClientObject client) {
     try (
-            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            BufferedReader in = new BufferedReader(new InputStreamReader(client.clientSocket.getInputStream()));
     ) {
         String line;
         while ((line = in.readLine()) != null) {
-            broadcast(line, client);
+            if (client.clientName!=null) broadcast("[" + client.clientName + "]: " + line, null);
+            else{
+                client.clientName=line;
+                broadcast("// User joined your channel: "+client.clientName, client);
+            }
         }
     } catch (IOException e) {
-        System.out.println("User disconnected from your channel");
+        System.out.println("Client disconnected: " + client.clientSocket.getRemoteSocketAddress());
+        broadcast("// User disconnected from your channel: "+client.clientName, client);
     } finally {
         try {
             clients.remove(client);
-            client.close();
+            client.clientSocket.close();
         } catch (IOException ignored) {}
     }
 }
 
-void broadcast(String msg, Socket sender) {
-    for (Socket c : clients) {
-        try {
-            PrintWriter out = new PrintWriter(c.getOutputStream(), true);
-            out.println(msg);
-        } catch (IOException ignore) {}
+
+void clientApproval(Socket client){
+    try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));)
+    {
+
     }
+    catch (IOException e){
+        System.out.println("Failed to verify client");
+    }
+}
+
+void broadcast(String msg, ClientObject clientToHide) {
+    System.out.println(msg);
+    for (ClientObject c : clients) {
+        if (c!=clientToHide){
+            try {
+                PrintWriter out = new PrintWriter(c.clientSocket.getOutputStream(), true);
+                out.println(msg);
+            } catch (IOException ignore) {}
+        }
+    }
+}
+
+
+public class ClientObject{
+    public ClientObject(Socket clientSocket, String clientName){
+        this.clientSocket=clientSocket;
+        this.clientName=clientName;
+    }
+    public Socket clientSocket;
+    public String clientName;
 }
