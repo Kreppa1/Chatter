@@ -137,7 +137,15 @@ public void processClientCommand(String command, ClientObject client){
         try{
             switch (param[0]){
                 case "kick":
-                    kickClient(getClientByName(param[1]),param[2]);
+                    if(param[1].equals("id")){
+                        String message = String.join(" ",
+                                java.util.Arrays.copyOfRange(param, 3, param.length));
+                        kickClient(clients.get(Integer.parseInt(param[2])),message.trim(),client);
+                        return;
+                    }
+                    String message = String.join(" ",
+                            java.util.Arrays.copyOfRange(param, 2, param.length));
+                    kickClient(getClientByName(param[1]),message.trim(),client);
                     return;
             }
         }
@@ -194,10 +202,13 @@ public void changeClientRole(ClientObject client, int roleID, String token){
         whisper("// The token you entered is invalid, no changes apply.",client,serverDummy);
     }
 }
-public void kickClient(ClientObject client, String reason) throws IOException {
-    whisper("// You have been kicked from the server: "+reason,client,serverDummy);
-    client.clientSocket.close();
-    clients.remove(client);
+public void kickClient(ClientObject target, String reason, ClientObject client) throws IOException {
+    String targetName=target.getDisplayName();
+    int targetID=clients.indexOf(target);
+    whisper("!! You have been kicked from the server: "+reason,target,serverDummy);
+    target.clientSocket.close();
+    clients.remove(target);
+    whisper("// Client kicked: "+targetName+" ("+targetID+")", client, serverDummy);
 }
 
 
