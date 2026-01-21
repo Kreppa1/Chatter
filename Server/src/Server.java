@@ -1,6 +1,8 @@
+import java.awt.*;
 import java.net.*;
 import java.io.*;
 import java.util.*;
+import java.util.List;
 
 ServerSocket serverSocket;
 private List<ClientObject> clients = Collections.synchronizedList(new ArrayList<>());
@@ -46,6 +48,7 @@ void initializeChannels(){
     channels.add(new ChannelObject("Main",true,true));
     channels.add(new ChannelObject("Chat",true,false));
     channels.add(new ChannelObject("Fun",true,true));
+    channels.add(new PixelChannel("R/Placeoderso",false,true,10,10));
     }
 
 void startServer() throws IOException {
@@ -115,6 +118,23 @@ public void processClientCommand(String command, ClientObject client){
                         return;
                     case "role":
                         changeClientRole(client, Integer.parseInt(param[2]), param[3]);
+                        return;
+                    case "pixel":
+                        PixelChannel p;
+                        try{
+                            p = (PixelChannel) getChannelByID(client.clientChannel);
+                        }
+                        catch (ClassCastException ignore){
+                                whisper("// The command you entered only works for Pixel-Channels",client,serverDummy);
+                            return;
+                        }
+
+                        boolean answer=p.placePixel(Integer.parseInt(param[2]),Integer.parseInt(param[3]),param[4]);
+                        if (answer){
+                            whisper("// Pixel placed",client,serverDummy);
+                            broadcast("$$"+p.getPrintedGrid(),client.clientChannel,serverDummy,null);
+                        }
+                        else whisper("// Failed to place pixel, invalid color?",client,serverDummy);
                         return;
                 }
                 return;
@@ -264,52 +284,5 @@ public RoleObject getRoleByID(int ID){
     return null;
 }
 
-public class ClientObject{
-    public ClientObject(Socket clientSocket, String clientName, int clientChannel, RoleObject clientRole){
-        this.clientSocket=clientSocket;
-        this.clientName=clientName;
-        this.clientChannel=clientChannel;
-        this.clientRole=clientRole;
-    }
-    public Socket clientSocket;
-    public String clientName;
-    public int clientChannel;
-    public RoleObject clientRole;
-
-    public String getDisplayName(){
-        if (clientName!=null) return clientName;
-        else return "?";
-    }
-}
-
-
-public class ChannelObject{
-    boolean allowMessages=true;
-    boolean allowAnonymous=false;
-    String channelName;
-
-    public ChannelObject(String channelName, boolean allowMessages, boolean allowAnonymous){
-        this.allowMessages=allowMessages;
-        this.channelName=channelName;
-        this.allowAnonymous=allowAnonymous;
-    }
-    public String checkClient(ClientObject client){ //if client trying to join doesnt meet the requirements, the returning string will be the error message;
-        String message="!! The channel you try to join requires the client to:";
-        if (!allowAnonymous && client.clientName==null) message=message+" have a name";
-        else return "";
-        return message+".";
-    }
-}
-
-public class RoleObject{
-    public RoleObject(int roleID, String roleToken, String roleName){
-        this.roleID=roleID;
-        this.roleToken=roleToken;
-        this.roleName=roleName;
-    }
-    int roleID;
-    String roleToken;
-    String roleName;
-}
 
 
