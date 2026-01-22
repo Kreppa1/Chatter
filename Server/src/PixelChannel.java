@@ -19,6 +19,15 @@ public class PixelChannel extends ChannelObject{
     public PixelChannel(String channelName, boolean allowMessages, boolean allowAnonymous, int gridWidth, int gridHeight) {
         super(channelName, allowMessages, allowAnonymous);
         pixelGrid = new Color[gridWidth][gridHeight];
+        fillGrid(Color.BLACK);
+        getPrintedGrid();
+    }
+    public void fillGrid(Color color){
+        for(int i=0;i<pixelGrid.length;i++){
+            for(int j=0;j<pixelGrid[0].length;j++){
+                pixelGrid[j][i]=color;
+            }
+        }
     }
     public void placePixel(int x, int y, Color color){
         pixelGrid[x][y]=color;
@@ -36,12 +45,20 @@ public class PixelChannel extends ChannelObject{
     public String getPrintedGrid(){
         String print = "";
         for(int i=0;i<pixelGrid.length;i++){
-            for(int j=0;i<pixelGrid[0].length;j++){
-                print=print+pixelGrid[j][i].toString()+":";
+            for(int j=0;j<pixelGrid[0].length;j++){
+                print=print+colorToString(pixelGrid[j][i])+":";
+
             }
-            print=print+"~";
-            System.out.println(print);
+            print=print+"~\n";
         }
+        System.out.println(print);
         return print;
+    }
+    public String colorToString(Color c){
+        if(c==null){
+            System.err.println("Critical Error: Color grid failed to initialize, check pixel channels!");
+            System.exit(0);
+        }
+        return "rgb(" + c.getRed() + ", " + c.getGreen() + ", " + c.getBlue() + ")";
     }
 }
