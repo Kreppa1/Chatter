@@ -22,7 +22,7 @@ public class ChatUI {
 
         chatArea = new JTextPane();
         chatArea.setEditable(false);
-        chatArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        chatArea.setFont(new Font("Consolas", Font.PLAIN, 12));
         chatArea.setBackground(Color.WHITE);
         chatArea.setForeground(Color.BLACK);
 
@@ -65,17 +65,43 @@ public class ChatUI {
         command = command.replaceAll("#", "");
         String[] param = command.split(" ");
 
-        if (param.length >= 3 && param[0].equals("set") && param[1].equals("theme")) {
-            if (clientApp.swapUITheme(param[2])) {
-                appendMessage("Client --> Theme changed.\n", Color.blue,true);
-            } else {
-                appendMessage("Client --> Error.\n", Color.blue,true);
+        try{
+            switch (param[0]){
+                case "set":
+                    switch (param[1]){
+                        case "theme":
+                            if (clientApp.swapUITheme(param[2])) {
+                                appendMessage("Client --> Theme changed.\n", Color.blue,true);
+                            } else {
+                                appendMessage("Client --> Error changing theme.\n", Color.blue,true);
+                            }
+                            return;
+                    }
+                case "clear":
+                case "cls":
+                    clearChat();
+                    return;
+                default:
+                    appendMessage("Client --> Command not found.\n", Color.blue,true);
             }
+        }
+        catch (Exception ignore){
+            appendMessage("Client --> Invalid format.\n", Color.blue,true);
         }
     }
 
     public void appendMessage(String message) {
-        appendMessage(message, chatArea.getForeground(), false);
+        if (message.startsWith("//")){
+            message=message.substring(2);
+            appendMessage(message, Color.black,true);
+        }
+        else if(message.startsWith("!!")){
+            message=message.substring(2);
+            appendMessage(message,Color.red,true);
+        }
+        else{
+            appendMessage(message, chatArea.getForeground(), false);
+        }
     }
 
     public void appendMessage(String message, Color color, boolean bold) {
@@ -91,6 +117,10 @@ public class ChatUI {
         } catch (BadLocationException e) {
             e.printStackTrace();
         }
+    }
+
+    public void clearChat(){
+        chatArea.setText("");
     }
 
     public void show() {

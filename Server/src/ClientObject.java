@@ -11,6 +11,7 @@ public class ClientObject{
     public String clientName;
     public int clientChannel;
     public RoleObject clientRole;
+    public int messageStress;
 
     public String getDisplayName(){
         if (clientName!=null) return clientName;
