@@ -46,7 +46,7 @@ void initializeRoles(){
 }
 void initializeChannels(){
     serverDummy=new ClientObject(null,"System",-2,getRoleByID(-2));
-    default_channel_welcome = new String[]{"Welcome to our this server! You are now in the void channel, please enter the command: \"/switch <ChannelID>\", to join a real channel."};
+    default_channel_welcome = new String[]{"Welcome to this server! You are now in the void channel, please enter the command: \"/switch <ChannelID>\", to join a real channel."};
     channels.add(new ChannelObject("Main",true,true, new String[]{"Welcome to the Main channel, everyone can chat here.","!! Beware off diddy bluds!"}));
     channels.add(new ChannelObject("Chat",true,false, new String[]{"This is a channel can only be used by non anonym users"}));
     channels.add(new PixelChannel("R/Placeoderso",false,false,new String[]{"This is a Pixel-Channel, here you can place pixels on the canvas, as long as your client supports it."},26,20));
@@ -89,11 +89,26 @@ void stopServer() throws IOException {
 }
 
 void handleClient(ClientObject client) {
+    Thread destressThread=null;
     try (
             BufferedReader in = new BufferedReader(new InputStreamReader(client.clientSocket.getInputStream()));
     ) {
         String line;
         while ((line = in.readLine()) != null) {
+            client.messageStress++;
+            if (client.messageStress>=10){
+                whisper("!! Action currently not possible due to spam protection. Please wait a few seconds and try again.",client,serverDummy);
+                continue;
+            }
+            if (client.messageStress>1){
+                if(destressThread==null){
+                    destressThread=new Thread(() -> handleClientDestress(client));
+                    destressThread.start();
+                }
+            }
+            else{
+                destressThread=null;
+            }
             if(line.startsWith("/")) processClientCommand(line, client);
             else{
                 broadcast(line,client.clientChannel,client, null);
@@ -101,6 +116,9 @@ void handleClient(ClientObject client) {
         }
     } catch (IOException e) {
         System.out.println("Client disconnected: " + client.clientSocket.getRemoteSocketAddress());
+        try{
+            disconnectClient(client);
+        }catch (IOException ignore){}
         broadcast("// User disconnected from your channel: "+client.clientName,client.clientChannel,serverDummy, client);
     } finally {
         try {
@@ -109,6 +127,22 @@ void handleClient(ClientObject client) {
         } catch (IOException ignored) {}
     }
 }
+void handleClientDestress(ClientObject client){
+    while (client.messageStress>0){
+        try{
+            System.out.println(client.messageStress);
+            Thread.sleep(1000);
+            client.messageStress--;
+        }
+        catch (InterruptedException e){
+            return;
+        }
+    }
+}
+
+
+
+
 public void processClientCommand(String command, ClientObject client){
     command=command.replaceAll("/","");
     String param[]=command.split(" ");
@@ -252,12 +286,7 @@ public void kickClient(ClientObject target, String reason, ClientObject client) 
 }
 public void disconnectClient(ClientObject target) throws IOException{
     whisper("// Disconnected.",target,serverDummy);
-    whisper("§disconnect",target,serverDummy);
-    try {
-        Thread.sleep(3000);
-    } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-    }
+
     target.clientSocket.close();
     clients.remove(target);
     System.out.println("Client removed");
@@ -267,7 +296,7 @@ public void disconnectClient(ClientObject target) throws IOException{
 void broadcast(String msg, int channelID, ClientObject sender ,ClientObject clientToHideFrom) {
     if(!Objects.equals(sender.getDisplayName(), serverDummy.clientName)){
         if (channelID==default_channel || !getChannelByID(channelID).allowMessages){
-            whisper("[System]: You cannot send messages in this channel, please enter \"/switch <ChannelID>\" to switch channel.",sender, serverDummy);
+            whisper("!! You cannot send messages in this channel, please enter \"/switch <ChannelID>\" to switch channel.",sender, serverDummy);
             return;
         }
         else{

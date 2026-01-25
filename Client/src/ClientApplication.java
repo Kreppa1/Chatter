@@ -77,12 +77,10 @@ public class ClientApplication {
                     final String message = msg.trim();
                     SwingUtilities.invokeLater(() -> processIncomingMessage(message));
                 }
+                new Thread(this::closeConnection).start();
             } catch (IOException e) {
                 SwingUtilities.invokeLater(() -> {
-                    if (chatUI != null) {
-                        chatUI.appendMessage("Client --> Connection lost.\n", Color.blue,true);
-                        new Thread(this::closeConnection).start();
-                    }
+                    new Thread(this::closeConnection).start();
                 });
             }
         }).start();
@@ -91,8 +89,6 @@ public class ClientApplication {
     private void processIncomingMessage(String message) {
         if (message.startsWith("§pixel")) {
             canvasManager.processCanvasData(message.substring(6));
-        } else if (message.equals("§disconnect")) {
-            new Thread(this::closeConnection).start();
         }
         else {
             if (chatUI != null) {
@@ -118,6 +114,9 @@ public class ClientApplication {
     }
 
     private void closeConnection() {
+        if (chatUI != null) {
+            SwingUtilities.invokeLater(() ->chatUI.appendMessage("Client --> Connection lost.\n", Color.blue,true));
+        }
         try {
             if (out != null) out.close();
             if (in != null) in.close();
