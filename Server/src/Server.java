@@ -12,6 +12,7 @@ private ClientObject serverDummy;
 
 //special channels
 int default_channel=-1;
+String[] default_channel_welcome; //Server welcome messages, displayed for the abstract channel -1 uppon joining the server (works like the welcomeMessages array of normal channels)
 int system_channel=-2;
 
 //sepcial rols /set by initializeRoles
@@ -45,11 +46,11 @@ void initializeRoles(){
 }
 void initializeChannels(){
     serverDummy=new ClientObject(null,"System",-2,getRoleByID(-2));
-    channels.add(new ChannelObject("Main",true,true));
-    channels.add(new ChannelObject("Chat",true,false));
-    channels.add(new ChannelObject("Fun",true,true));
-    channels.add(new PixelChannel("R/Placeoderso",false,true,10,10));
-    }
+    default_channel_welcome = new String[]{"Welcome to our this server! You are now in the void channel, please enter the command: \"/switch <ChannelID>\", to join a real channel."};
+    channels.add(new ChannelObject("Main",true,true, new String[]{"Welcome to the Main channel, everyone can chat here.","!! Beware off diddy bluds!"}));
+    channels.add(new ChannelObject("Chat",true,false, new String[]{"This is a channel can only be used by non anonym users"}));
+    channels.add(new PixelChannel("R/Placeoderso",false,false,new String[]{"This is a Pixel-Channel, here you can place pixels on the canvas, as long as your client supports it."},26,20));
+}
 
 void startServer() throws IOException {
     serverSocket = new ServerSocket(port);
@@ -63,7 +64,10 @@ void updateServer() throws IOException {
         ClientObject client = new ClientObject(clientS, null,-1, getRoleByID(0));
         clients.add(client);
         System.out.println("Client connected: " + client.clientSocket.getRemoteSocketAddress());
-        whisper("// Connected", client, serverDummy);
+        whisper("// Connected.", client, serverDummy);
+        for (String msg : default_channel_welcome){
+            whisper(msg, client,serverDummy);
+        }
 
         clientThreads.add(new Thread(() -> handleClient(client)));
         clientThreads.getLast().start();
@@ -108,7 +112,7 @@ void handleClient(ClientObject client) {
 public void processClientCommand(String command, ClientObject client){
     command=command.replaceAll("/","");
     String param[]=command.split(" ");
-
+    System.out.println(client.getDisplayName()+","+command);
     try{
         switch (param[0]){
             case "set":
@@ -128,11 +132,16 @@ public void processClientCommand(String command, ClientObject client){
                                 whisper("// The command you entered only works for Pixel-Channels",client,serverDummy);
                             return;
                         }
+                        boolean answer;
+                        if(param[2].equals("stream")){
+                            answer=p.pixelStream(param[3]);
+                        }
+                        else if(param.length==5) answer=p.placePixel(Integer.parseInt(param[2]),Integer.parseInt(param[3]),param[4]);
+                        else answer=p.placePixel(Integer.parseInt(param[2]),Integer.parseInt(param[3]),Integer.parseInt(param[4]),Integer.parseInt(param[5]),Integer.parseInt(param[6]));
 
-                        boolean answer=p.placePixel(Integer.parseInt(param[2]),Integer.parseInt(param[3]),param[4]);
                         if (answer){
-                            whisper("// Pixel placed",client,serverDummy);
-                            broadcast("$$"+p.getPrintedGrid(),client.clientChannel,serverDummy,null);
+                            whisper("// Pixel-changes sent.",client,serverDummy);
+                            broadcast("§pixel"+p.getPrintedGrid(),client.clientChannel,serverDummy,null);
                         }
                         else whisper("// Failed to place pixel, invalid color?",client,serverDummy);
                         return;
@@ -146,6 +155,11 @@ public void processClientCommand(String command, ClientObject client){
                 String message = String.join(" ",
                         java.util.Arrays.copyOfRange(param, 2, param.length));
                 whisper(message.trim(),getClientByName(param[1]),client);
+                return;
+            case "exit":
+            case "disconnect":
+            case "quit":
+                disconnectClient(client);
                 return;
         }
     }
@@ -194,11 +208,18 @@ public void switchClientChannel(ClientObject client, int newChannel){
     broadcast("// User disconnected from your channel: "+client.getDisplayName(),oldChannel,serverDummy,client);
     broadcast("// User joined your channel: "+client.getDisplayName(), client.clientChannel,serverDummy,client);
     whisper("// Channel switched: "+getChannelByID(client.clientChannel).channelName+" ("+client.clientChannel+")",client,serverDummy);
+    String[] welcomeMessages=channelObject.getWelcomeMessages();
+    if(welcomeMessages!=null){
+        for (String welcomeMessage : welcomeMessages) {
+            if (welcomeMessage != null) {
+                System.out.println(welcomeMessage);
+                whisper(welcomeMessage, client, serverDummy);
+            }
+        }
+    }
 }
 public void changeClientName(ClientObject client, String newName){
-    System.out.println("nigger");
     if (null == getClientByName(newName)){
-        System.out.println("nigger2");
         client.clientName=newName;
         whisper("// Username edited: "+client.clientName,client,serverDummy);
     }
@@ -226,16 +247,28 @@ public void kickClient(ClientObject target, String reason, ClientObject client) 
     String targetName=target.getDisplayName();
     int targetID=clients.indexOf(target);
     whisper("!! You have been kicked from the server: "+reason,target,serverDummy);
+    disconnectClient(target);
+    whisper("// Client kicked: "+targetName+" ("+targetID+")", client, serverDummy);
+}
+public void disconnectClient(ClientObject target) throws IOException{
+    whisper("// Disconnected.",target,serverDummy);
+    whisper("§disconnect",target,serverDummy);
+    try {
+        Thread.sleep(3000);
+    } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+    }
     target.clientSocket.close();
     clients.remove(target);
-    whisper("// Client kicked: "+targetName+" ("+targetID+")", client, serverDummy);
+    System.out.println("Client removed");
 }
 
 
 void broadcast(String msg, int channelID, ClientObject sender ,ClientObject clientToHideFrom) {
-    if(sender.getDisplayName()!="System"){
-        if (channelID==default_channel){
-            whisper("[System]: You cannot send messages in this channel, please enter \"/switch <ID>\" to switch channel.",sender, serverDummy);
+    if(!Objects.equals(sender.getDisplayName(), serverDummy.clientName)){
+        if (channelID==default_channel || !getChannelByID(channelID).allowMessages){
+            whisper("[System]: You cannot send messages in this channel, please enter \"/switch <ChannelID>\" to switch channel.",sender, serverDummy);
+            return;
         }
         else{
             msg="[" + sender.getDisplayName() + "]: " +msg;
