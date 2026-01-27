@@ -15,6 +15,7 @@ public class ClientApplication {
     private String host;
     private int port;
     private String name;
+    public int ID;
 
     private ConnectForm connectForm;
     private ChatUI chatUI;
@@ -89,6 +90,8 @@ public class ClientApplication {
     private void processIncomingMessage(String message) {
         if (message.startsWith("§pixel")) {
             canvasManager.processCanvasData(message.substring(6));
+        } else if (message.startsWith("§cs3")) {
+            counterStrike3Manager.processCounterStrike3Data(message.substring(3));
         }
         else {
             if (chatUI != null) {
@@ -106,6 +109,12 @@ public class ClientApplication {
     public void sendPixelData(String pixelData) {
         if (out != null && pixelData != null && !pixelData.trim().isEmpty()) {
             out.println(pixelData);
+        }
+    }
+
+    public void sendPlayerData(String playerData) {
+        if (out != null && playerData != null && !playerData.trim().isEmpty()) {
+            out.println(playerData);
         }
     }
 
