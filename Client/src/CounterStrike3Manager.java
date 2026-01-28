@@ -225,7 +225,7 @@ public class CounterStrike3Manager {
         im.put(KeyStroke.getKeyStroke("LEFT"), "leftArrow");
         im.put(KeyStroke.getKeyStroke("RIGHT"), "rightArrow");
 
-        // Movement speed
+        // Movement speed Nigger
         int moveSpeed = 10;
 
         am.put("up", new AbstractAction() {
