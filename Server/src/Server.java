@@ -91,17 +91,25 @@ class Server {
         System.out.println("Server stopped");
     }
 
-    void handleClient(ClientObject client) {
-        Thread destressThread = null;
-        try (
-                BufferedReader in = new BufferedReader(new InputStreamReader(client.clientSocket.getInputStream()));
-        ) {
-            String line;
-            while ((line = in.readLine()) != null) {
-                client.messageStress++;
-                if (client.messageStress >= 10) {
-                    whisper("!! Action currently not possible due to spam protection. Please wait a few seconds and try again.", client, serverDummy);
-                    continue;
+                        if (answer){
+                            whisper("// Pixel-changes sent.",client,serverDummy);
+                            broadcast("§pixel"+p.getPrintedGrid(),client.clientChannel,serverDummy,null);
+                        }
+                        else whisper("// Failed to place pixel, invalid color?",client,serverDummy);
+                        return;
+                    case "cs3":
+                        CounterStrikeChannel c;
+                        try{
+                            c = (CounterStrikeChannel) getChannelByID(client.clientChannel);
+                        }
+                        catch (ClassCastException ignore){
+                            whisper("// The command you entered only works for CS3-Channels",client,serverDummy);
+                            return;
+                        }
+                        if(param[2].equals("position")){
+                            c.setPlayerPosition(Integer.parseInt(param[3]), Integer.parseInt(param[4]), Integer.parseInt(param[5]));
+                        }
+                        return;
                 }
                 if (client.messageStress > 1) {
                     if (destressThread == null) {
