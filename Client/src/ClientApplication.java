@@ -92,7 +92,7 @@ public class ClientApplication {
         if (message.startsWith("§pixel")) {
             canvasManager.processCanvasData(message.substring(6));
         } else if (message.startsWith("§cs3")) {
-            counterStrike3Manager.processCounterStrike3Data(message.substring(3));
+            counterStrike3Manager.processCounterStrike3Data(message.substring(4).trim());
         }
         else {
             if (chatUI != null) {
