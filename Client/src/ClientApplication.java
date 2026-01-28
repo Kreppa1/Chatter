@@ -20,6 +20,7 @@ public class ClientApplication {
     private ConnectForm connectForm;
     private ChatUI chatUI;
     private CanvasManager canvasManager;
+    private CounterStrike3Manager counterStrike3Manager;
 
     private final Map<String, String> LAF_MAP = new HashMap<>();
     private List<JFrame> frames;
@@ -58,7 +59,7 @@ public class ClientApplication {
             chatUI = new ChatUI(this, name);
             frames.add(chatUI.getFrame());
             canvasManager = new CanvasManager(this, name);
-
+            counterStrike3Manager = new CounterStrike3Manager(this);
             // Show chat UI
             chatUI.show();
 
@@ -138,6 +139,9 @@ public class ClientApplication {
         } catch (InterruptedException ignore){}
         if (canvasManager != null) {
             canvasManager.close();
+        }
+        if (counterStrike3Manager != null) {
+            counterStrike3Manager.close();
         }
         if (chatUI!=null){
             chatUI.close();

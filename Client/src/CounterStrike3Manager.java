@@ -38,7 +38,7 @@ public class CounterStrike3Manager {
         this.clientApp = clientApp;
     }
 
-    public void open() {
+    public void open(String playerData) {
         if (frame != null) return;
 
         frame = new JFrame("Players View");
@@ -63,8 +63,10 @@ public class CounterStrike3Manager {
         frame.setVisible(true);
     }
 
-    // 🔁 called when server sends updated player list
     public void processCounterStrike3Data(String playerData) {
+        open(String playerData);
+
+
         List<Player> newPlayers = null;
 
         if (panel != null) {
