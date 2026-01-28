@@ -17,6 +17,25 @@ public class CounterStrikeChannel extends ChannelObject{
 
     }
 
+    public String[] getWelcomeMessages(){
+        if (welcomeMessages == null) welcomeMessages = new String[0];
+
+        String[] result = new String[welcomeMessages.length + 1];
+        System.arraycopy(welcomeMessages, 0, result, 0, welcomeMessages.length);
+
+        result[result.length - 1] = "§cs3" + getAllPrinted();
+        return result;
+    }
+
+    public String getAllPrinted(){
+        String r="";
+        r=r+"c("+X+","+Y+"):";
+        for(PlayerObject p : players){
+            r=r+"p("+players.indexOf(p)+","+p.x+","+p.y+","+p.c.getRed()+","+p.c.getGreen()+","+p.c.getBlue()+")";
+        }
+        return r;
+    }
+
     public class PlayerObject {
         public int x;
         public int y;

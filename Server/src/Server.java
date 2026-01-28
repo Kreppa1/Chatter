@@ -50,6 +50,7 @@ void initializeChannels(){
     channels.add(new ChannelObject("Main",true,true, new String[]{"Welcome to the Main channel, everyone can chat here.","!! Beware off diddy bluds!"}));
     channels.add(new ChannelObject("Chat",true,false, new String[]{"This is a channel can only be used by non anonym users"}));
     channels.add(new PixelChannel("R/Placeoderso",false,false,new String[]{"This is a Pixel-Channel, here you can place pixels on the canvas, as long as your client supports it."},26,20));
+    channels.add(new CounterStrikeChannel("CS",false,false,null,1000,1000));
 }
 
 void startServer() throws IOException {
