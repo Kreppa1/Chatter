@@ -12,7 +12,7 @@ private ClientObject serverDummy;
 
 //special channels
 int default_channel=-1;
-String[] default_channel_welcome; //Server welcome messages, displayed for the abstract channel -1 uppon joining the server (works like the welcomeMessages array of normal channels)
+String[] default_channel_welcome; //Server welcome messages, displayed for the abstract channel -1 uppon joining the server (works like the welcomeMessages array of normal channels)s
 int system_channel=-2;
 
 //sepcial rols /set by initializeRoles
