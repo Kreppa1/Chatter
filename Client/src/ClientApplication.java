@@ -15,10 +15,12 @@ public class ClientApplication {
     private String host;
     private int port;
     private String name;
+    public int ID;
 
     private ConnectForm connectForm;
     private ChatUI chatUI;
     private CanvasManager canvasManager;
+    private CounterStrike3Manager counterStrike3Manager;
 
     private final Map<String, String> LAF_MAP = new HashMap<>();
     private List<JFrame> frames;
@@ -57,7 +59,7 @@ public class ClientApplication {
             chatUI = new ChatUI(this, name);
             frames.add(chatUI.getFrame());
             canvasManager = new CanvasManager(this, name);
-
+            counterStrike3Manager = new CounterStrike3Manager(this);
             // Show chat UI
             chatUI.show();
 
@@ -89,6 +91,8 @@ public class ClientApplication {
     private void processIncomingMessage(String message) {
         if (message.startsWith("§pixel")) {
             canvasManager.processCanvasData(message.substring(6));
+        } else if (message.startsWith("§cs3")) {
+            counterStrike3Manager.processCounterStrike3Data(message.substring(4).trim());
         }
         else {
             if (chatUI != null) {
@@ -106,6 +110,12 @@ public class ClientApplication {
     public void sendPixelData(String pixelData) {
         if (out != null && pixelData != null && !pixelData.trim().isEmpty()) {
             out.println(pixelData);
+        }
+    }
+
+    public void sendPlayerData(String playerData) {
+        if (out != null && playerData != null && !playerData.trim().isEmpty()) {
+            out.println(playerData);
         }
     }
 
@@ -129,6 +139,9 @@ public class ClientApplication {
         } catch (InterruptedException ignore){}
         if (canvasManager != null) {
             canvasManager.close();
+        }
+        if (counterStrike3Manager != null) {
+            counterStrike3Manager.close();
         }
         if (chatUI!=null){
             chatUI.close();
