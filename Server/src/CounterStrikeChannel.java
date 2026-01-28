@@ -12,28 +12,33 @@ public class CounterStrikeChannel extends ChannelObject{
         super(channelName, allowMessages, allowAnonymous, welcomeMessages);
     }
 
-    public void joinGame(ClientObject client){
-        players.add(new PlayerObject(0,0, Color.red));
-
+    public String joinGame(int x, int y, Color c){
+        PlayerObject p = new PlayerObject(x,y,c);
+        players.add(p);
+        return "§cs3 welcome you("+players.indexOf(p)+"):c("+X+","+Y+")";
     }
 
     public String[] getWelcomeMessages(){
         if (welcomeMessages == null) welcomeMessages = new String[0];
-
         String[] result = new String[welcomeMessages.length + 1];
         System.arraycopy(welcomeMessages, 0, result, 0, welcomeMessages.length);
 
+        result[result.length - 2] = joinGame(0,0,Color.green);
         result[result.length - 1] = "§cs3" + getAllPrinted();
+
         return result;
     }
 
     public String getAllPrinted(){
         String r="";
-        r=r+"c("+X+","+Y+"):";
         for(PlayerObject p : players){
             r=r+"p("+players.indexOf(p)+","+p.x+","+p.y+","+p.c.getRed()+","+p.c.getGreen()+","+p.c.getBlue()+")";
         }
         return r;
+    }
+
+    public void setPlayerPosition(int ID, int x, int y){
+        players.get(ID).set(x,y);
     }
 
     public class PlayerObject {
@@ -49,6 +54,10 @@ public class CounterStrikeChannel extends ChannelObject{
         public void move(int x, int y) {
             this.x = this.x + x;
             this.y = this.y + y;
+        }
+        public void set(int x, int y){
+            this.x=x;
+            this.y=y;
         }
     }
 }

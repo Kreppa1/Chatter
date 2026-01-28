@@ -180,6 +180,19 @@ public void processClientCommand(String command, ClientObject client){
                         }
                         else whisper("// Failed to place pixel, invalid color?",client,serverDummy);
                         return;
+                    case "cs3":
+                        CounterStrikeChannel c;
+                        try{
+                            c = (CounterStrikeChannel) getChannelByID(client.clientChannel);
+                        }
+                        catch (ClassCastException ignore){
+                            whisper("// The command you entered only works for CS3-Channels",client,serverDummy);
+                            return;
+                        }
+                        if(param[2].equals("position")){
+                            c.setPlayerPosition(Integer.parseInt(param[3]), Integer.parseInt(param[4]), Integer.parseInt(param[5]));
+                        }
+                        return;
                 }
                 return;
             case "switch":
