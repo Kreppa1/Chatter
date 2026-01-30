@@ -8,6 +8,8 @@ public class ChatUI {
     private JTextPane chatArea; // was JTextArea
     private JTextField messageField;
     private ClientApplication clientApp;
+    private SoundHandler soundHandler;
+    private boolean playSounds = true;
 
     public ChatUI(ClientApplication clientApp, String userName) {
         this.clientApp = clientApp;
@@ -15,6 +17,8 @@ public class ChatUI {
     }
 
     private void createUI(String userName) {
+        soundHandler = new SoundHandler();
+
         frame = new JFrame("Chat - " + userName);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(500, 400);
@@ -72,10 +76,22 @@ public class ChatUI {
                         case "theme":
                             if (clientApp.swapUITheme(param[2])) {
                                 appendMessage("Client --> Theme changed.\n", Color.blue,true);
+                                return;
                             } else {
-                                appendMessage("Client --> Error changing theme.\n", Color.blue,true);
+                                throw new Exception();
                             }
-                            return;
+                        case "sound":
+                            if (param[2].equals("true")) {
+                                playSounds = true;
+                                appendMessage("Client --> Sound resumed.\n", Color.blue,true);
+                                return;
+                            }
+                            else if (param[2].equals("false")) {
+                                playSounds = false;
+                                appendMessage("Client --> Sound muted.\n", Color.blue,true);
+                                return;
+                            }
+                            throw new Exception();
                     }
                 case "clear":
                 case "cls":
@@ -91,6 +107,7 @@ public class ChatUI {
     }
 
     public void appendMessage(String message) {
+        if (playSounds) soundHandler.playForString(message);
         if (message.startsWith("//")){
             message=message.substring(2);
             appendMessage(message, Color.black,true);
