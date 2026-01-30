@@ -21,13 +21,14 @@ public class PixelChannel extends ChannelObject{
         fillGrid(Color.BLACK);
         getPrintedGrid();
     }
-
-    public PixelChannel(String channelName, boolean allowMessages, boolean allowAnonymous, int gridWidth, int gridHeight) {
-        super(channelName, allowMessages, allowAnonymous);
+    public PixelChannel(String channelName, boolean allowMessages, boolean allowAnonymous,String[] welcomeMessages,boolean allowSpam, int gridWidth, int gridHeight) {
+        super(channelName, allowMessages, allowAnonymous, welcomeMessages, allowSpam);
         pixelGrid = new Color[gridWidth][gridHeight];
         fillGrid(Color.BLACK);
         getPrintedGrid();
     }
+
+
     public void fillGrid(Color color){
         for(int i=0;i<pixelGrid[0].length;i++){
             for(int j=0;j<pixelGrid.length;j++){
@@ -67,7 +68,6 @@ public class PixelChannel extends ChannelObject{
             }
             print=print+"~";
         }
-        System.out.println(print);
         return print;
     }
     public String colorToString(Color c){

@@ -1,337 +1,366 @@
+// CounterStrike3Manager.java - Client-side Counter Strike 3 game manager
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.util.*;
-import java.util.List;
+import java.awt.event.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CounterStrike3Manager {
-
-    public class Player {
-        private int x;
-        private int y;
-        private int ID;
-        private Color color;
-
-        public Player(int ID, int x, int y, Color color) {
-            this.ID = ID;
-            this.x = x;
-            this.y = y;
-            this.color = color;
-        }
-
-        public int getX() { return x; }
-        public int getY() { return y; }
-        public int getID() { return ID; }
-        public Color getColor() { return color; }
-    }
-
-    private JFrame frame;
-    private PlayerPanel panel;
     private ClientApplication clientApp;
-    private int windowWidth;
-    private int windowHeight;
-    private int myLastX = -1;
-    private int myLastY = -1;
-    private boolean hasReceivedInitialData = false;
+    private JFrame gameFrame;
+    private GamePanel gamePanel;
+    private int clientID = -1;
+    private int canvasWidth = 1000;
+    private int canvasHeight = 1000;
+    private Map<Integer, PlayerData> players = new HashMap<>();
+    private boolean isActive = false;
+
+    // Player movement variables
+    private boolean upPressed = false;
+    private boolean downPressed = false;
+    private boolean leftPressed = false;
+    private boolean rightPressed = false;
+    private final int MOVEMENT_SPEED = 5;
 
     public CounterStrike3Manager(ClientApplication clientApp) {
         this.clientApp = clientApp;
+        initializeGameFrame();
     }
 
-    public void open() {
-        if (frame != null) return;
+    private void initializeGameFrame() {
+        gameFrame = new JFrame("Counter Strike 3 - " + clientApp.getName());
+        gameFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        gameFrame.setSize(800, 600);
+        gameFrame.setLocationRelativeTo(null);
 
-        frame = new JFrame("Players View");
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        frame.setLayout(new BorderLayout());
+        gamePanel = new GamePanel();
+        gameFrame.add(gamePanel);
 
-        frame.addWindowListener(new java.awt.event.WindowAdapter() {
+        setupKeyListeners();
+    }
+
+    private void setupKeyListeners() {
+        InputMap inputMap = gamePanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = gamePanel.getActionMap();
+
+        // Key pressed actions
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, false), "upPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0, false), "downPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, false), "leftPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, false), "rightPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0, false), "upPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0, false), "downPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0, false), "leftPressed");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0, false), "rightPressed");
+
+        // Key released actions
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, true), "upReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0, true), "downReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, true), "leftReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0, true), "rightReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0, true), "upReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0, true), "downReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0, true), "leftReleased");
+        inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0, true), "rightReleased");
+
+        // Pressed actions
+        actionMap.put("upPressed", new AbstractAction() {
             @Override
-            public void windowClosing(java.awt.event.WindowEvent e) {
-                close();
+            public void actionPerformed(ActionEvent e) {
+                upPressed = true;
+                updateMovement();
             }
         });
 
-        panel = new PlayerPanel();
-        setupKeyBindings(panel);
-        frame.add(panel, BorderLayout.CENTER);
+        actionMap.put("downPressed", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                downPressed = true;
+                updateMovement();
+            }
+        });
 
-        // Set default size, will be updated when we get window dimensions
-        windowWidth = 800;
-        windowHeight = 600;
-        frame.setSize(windowWidth, windowHeight);
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+        actionMap.put("leftPressed", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                leftPressed = true;
+                updateMovement();
+            }
+        });
+
+        actionMap.put("rightPressed", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                rightPressed = true;
+                updateMovement();
+            }
+        });
+
+        // Released actions
+        actionMap.put("upReleased", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                upPressed = false;
+                updateMovement();
+            }
+        });
+
+        actionMap.put("downReleased", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                downPressed = false;
+                updateMovement();
+            }
+        });
+
+        actionMap.put("leftReleased", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                leftPressed = false;
+                updateMovement();
+            }
+        });
+
+        actionMap.put("rightReleased", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                rightPressed = false;
+                updateMovement();
+            }
+        });
+
+        // Movement update timer
+        Timer movementTimer = new Timer(50, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isActive && (upPressed || downPressed || leftPressed || rightPressed)) {
+                    updateMovement();
+                }
+            }
+        });
+        movementTimer.start();
     }
 
-    public void processCounterStrike3Data(String playerData) {
-        if (!hasReceivedInitialData) {
-            // First message: "welcome you(id):c(X,Y)"
-            processInitialWelcome(playerData);
-        } else {
-            // Subsequent messages: "all p(id,x,y,r,g,b):p(id,x,y,r,g,b):..."
-            processPlayerUpdate(playerData);
+    private void updateMovement() {
+        if (clientID == -1) return;
+
+        PlayerData myPlayer = players.get(clientID);
+        if (myPlayer == null) return;
+
+        int newX = myPlayer.x;
+        int newY = myPlayer.y;
+
+        if (upPressed) newY -= MOVEMENT_SPEED;
+        if (downPressed) newY += MOVEMENT_SPEED;
+        if (leftPressed) newX -= MOVEMENT_SPEED;
+        if (rightPressed) newX += MOVEMENT_SPEED;
+
+        // Keep within bounds
+        newX = Math.max(0, Math.min(canvasWidth - 20, newX));
+        newY = Math.max(0, Math.min(canvasHeight - 20, newY));
+
+        // Send update to server
+        String command = "/set cs3 position " + clientID + " " + newX + " " + newY;
+        clientApp.sendMessage(command);
+    }
+
+    public void processCounterStrike3Data(String data) {
+        if (data.startsWith("welcome")) {
+            // Parse welcome message: "welcome you(ID):c(X,Y)"
+            parseWelcomeMessage(data);
+            showGameWindow();
+            isActive = true;
+        }
+        else if (data.startsWith("end")) {
+            close();
+        }
+        else {
+            // Parse player update: "p(ID,x,y,r,g,b):p(ID,x,y,r,g,b):..."
+            parsePlayerUpdate(data);
+            if (gamePanel != null) {
+                gamePanel.repaint();
+            }
         }
     }
 
-    private void processInitialWelcome(String welcomeData) {
-        // Format: "welcome you(id):c(X,Y)"
+    private void parseWelcomeMessage(String data) {
         try {
-            // Parse the ID from "you(id)"
-            int idStart = welcomeData.indexOf("you(");
-            if (idStart != -1) {
-                int idEnd = welcomeData.indexOf("):", idStart);
-                String idStr = welcomeData.substring(idStart + 4, idEnd);
-                clientApp.ID = Integer.parseInt(idStr);
-            }
+            // Extract ID: "welcome you(0):c(1000,1000)"
+            int idStart = data.indexOf("you(") + 4;
+            int idEnd = data.indexOf(")", idStart);
+            clientID = Integer.parseInt(data.substring(idStart, idEnd));
 
-            // Parse window dimensions from "c(X,Y)"
-            int cStart = welcomeData.indexOf("c(");
-            if (cStart != -1) {
-                int cEnd = welcomeData.indexOf(")", cStart);
-                String cData = welcomeData.substring(cStart + 2, cEnd);
-                String[] coords = cData.split(",");
+            // Extract canvas size: "c(1000,1000)"
+            int sizeStart = data.indexOf("c(") + 2;
+            int sizeEnd = data.indexOf(")", sizeStart);
+            String[] sizeParts = data.substring(sizeStart, sizeEnd).split(",");
+            canvasWidth = Integer.parseInt(sizeParts[0]);
+            canvasHeight = Integer.parseInt(sizeParts[1]);
 
-                if (coords.length >= 2) {
-                    windowWidth = Integer.parseInt(coords[0].trim());
-                    windowHeight = Integer.parseInt(coords[1].trim());
-
-                    // Update frame size
-                    if (frame != null) {
-                        frame.setSize(windowWidth, windowHeight);
-                        panel.setWindowSize(windowWidth, windowHeight);
-                    }
-                }
-            }
-
-            hasReceivedInitialData = true;
-            open(); // Make sure window is open
+            // Add initial player data
+            players.put(clientID, new PlayerData(0, 0, Color.GREEN));
 
         } catch (Exception e) {
-            System.err.println("Error parsing welcome data: " + welcomeData);
-            e.printStackTrace();
+            System.err.println("Error parsing welcome message: " + e.getMessage());
         }
     }
 
-    private void processPlayerUpdate(String playerData) {
-        // Format: "all p(id,x,y,r,g,b):p(id,x,y,r,g,b):..."
-        open(); // Make sure window is open
+    private void parsePlayerUpdate(String data) {
+        players.clear();
 
-        List<Player> currentPlayers = new ArrayList<>();
-
-        // Split by ":" to get each player
-        String[] playerStrings = playerData.split(":");
+        // Split by "):" to get individual player data
+        String[] playerStrings = data.split(":");
 
         for (String playerStr : playerStrings) {
-            if (playerStr.startsWith("p(") && playerStr.endsWith(")")) {
+            if (playerStr.trim().isEmpty()) continue;
+
+            // Remove "p(" prefix and ")" suffix
+            if (playerStr.startsWith("p(")) {
+                playerStr = playerStr.substring(2);
+                playerStr = playerStr.substring(0, playerStr.length() - 1);
+            }
+
+            // Parse: "ID,x,y,r,g,b"
+            String[] parts = playerStr.split(",");
+            if (parts.length >= 6) {
                 try {
-                    String playerInfo = playerStr.substring(2, playerStr.length() - 1);
-                    String[] parts = playerInfo.split(",");
+                    int id = Integer.parseInt(parts[0]);
+                    int x = Integer.parseInt(parts[1]);
+                    int y = Integer.parseInt(parts[2]);
+                    int r = Integer.parseInt(parts[3]);
+                    int g = Integer.parseInt(parts[4]);
+                    int b = Integer.parseInt(parts[5]);
 
-                    if (parts.length >= 6) {
-                        int id = Integer.parseInt(parts[0].trim());
-                        int x = Integer.parseInt(parts[1].trim());
-                        int y = Integer.parseInt(parts[2].trim());
-                        int r = Integer.parseInt(parts[3].trim());
-                        int g = Integer.parseInt(parts[4].trim());
-                        int b = Integer.parseInt(parts[5].trim());
+                    Color color = new Color(r, g, b);
+                    players.put(id, new PlayerData(x, y, color));
 
-                        Color color = new Color(r, g, b);
-                        Player player = new Player(id, x, y, color);
-                        currentPlayers.add(player);
-
-                        // Store my position for movement reference
-                        if (id == clientApp.ID) {
-                            myLastX = x;
-                            myLastY = y;
-                        }
-                    }
-                } catch (Exception e) {
-                    System.err.println("Error parsing player: " + playerStr);
+                } catch (NumberFormatException e) {
+                    System.err.println("Error parsing player data: " + playerStr);
                 }
             }
         }
+    }
 
-        // Update the panel
-        if (panel != null) {
-            panel.setPlayers(currentPlayers);
+    public void showGameWindow() {
+        if (!gameFrame.isVisible()) {
+            gameFrame.setVisible(true);
+            gamePanel.requestFocusInWindow();
         }
     }
 
     public void close() {
-        if (frame != null) {
-            frame.dispose();
-            frame = null;
-            panel = null;
+        if (gameFrame != null) {
+            gameFrame.dispose();
         }
+        isActive = false;
     }
 
-    private void moveLocalPlayer(int dx, int dy) {
-        // Calculate new position based on my last known position
-        if (myLastX == -1 || myLastY == -1) return;
+    // Inner class for game panel
+    private class GamePanel extends JPanel {
+        private final int PLAYER_SIZE = 20;
 
-        int newX = myLastX + dx;
-        int newY = myLastY + dy;
-
-        // Boundary checking
-        if (newX < 0) newX = 0;
-        if (newX > windowWidth - 20) newX = windowWidth - 20;
-        if (newY < 0) newY = 0;
-        if (newY > windowHeight - 40) newY = windowHeight - 40;
-
-        // Update my last known position
-        myLastX = newX;
-        myLastY = newY;
-
-        // Send only my new position to server
-        sendPositionToServer(newX, newY);
-    }
-
-    private void sendPositionToServer(int x, int y) {
-        // NEW FORMAT: /set cs3 position id x y (no parentheses)
-        String msg = "/set cs3 position " +
-                clientApp.ID + " " +
-                x + " " +
-                y;
-
-        clientApp.sendPlayerData(msg);
-    }
-
-    // Optional: if you need to send color changes
-    private void sendColorToServer(Color color) {
-        // NEW FORMAT: /set cs3 color id r g b (no parentheses)
-        String msg = "/set cs3 color " +
-                clientApp.ID + " " +
-                color.getRed() + " " +
-                color.getGreen() + " " +
-                color.getBlue();
-
-        clientApp.sendPlayerData(msg);
-    }
-
-    private void setupKeyBindings(JComponent c) {
-        InputMap im = c.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-        ActionMap am = c.getActionMap();
-
-        // WASD keys for movement
-        im.put(KeyStroke.getKeyStroke("W"), "up");
-        im.put(KeyStroke.getKeyStroke("S"), "down");
-        im.put(KeyStroke.getKeyStroke("A"), "left");
-        im.put(KeyStroke.getKeyStroke("D"), "right");
-
-        // Arrow keys as alternative
-        im.put(KeyStroke.getKeyStroke("UP"), "upArrow");
-        im.put(KeyStroke.getKeyStroke("DOWN"), "downArrow");
-        im.put(KeyStroke.getKeyStroke("LEFT"), "leftArrow");
-        im.put(KeyStroke.getKeyStroke("RIGHT"), "rightArrow");
-
-        // Movement speed Nigger
-        int moveSpeed = 10;
-
-        am.put("up", new AbstractAction() {
-            public void actionPerformed(ActionEvent e) {
-                moveLocalPlayer(0, -moveSpeed);
-            }
-        });
-        am.put("down", new AbstractAction() {
-            public void actionPerformed(ActionEvent e) {
-                moveLocalPlayer(0, moveSpeed);
-            }
-        });
-        am.put("left", new AbstractAction() {
-            public void actionPerformed(ActionEvent e) {
-                moveLocalPlayer(-moveSpeed, 0);
-            }
-        });
-        am.put("right", new AbstractAction() {
-            public void actionPerformed(ActionEvent e) {
-                moveLocalPlayer(moveSpeed, 0);
-            }
-        });
-
-        // Arrow key actions (same as WASD)
-        am.put("upArrow", am.get("up"));
-        am.put("downArrow", am.get("down"));
-        am.put("leftArrow", am.get("left"));
-        am.put("rightArrow", am.get("right"));
-    }
-
-    class PlayerPanel extends JPanel {
-
-        private List<Player> currentPlayers;
-        private int panelWidth;
-        private int panelHeight;
-
-        public PlayerPanel() {
-            setBackground(Color.DARK_GRAY);
-            setDoubleBuffered(true);
-            panelWidth = 800;
-            panelHeight = 600;
-        }
-
-        public void setWindowSize(int width, int height) {
-            this.panelWidth = width;
-            this.panelHeight = height;
-            if (frame != null) {
-                frame.setSize(width, height);
-            }
-            revalidate();
-            repaint();
-        }
-
-        public void setPlayers(List<Player> players) {
-            this.currentPlayers = players;
-            repaint();
+        public GamePanel() {
+            setBackground(Color.BLACK);
+            setPreferredSize(new Dimension(800, 600));
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
 
-            if (currentPlayers == null || currentPlayers.isEmpty()) return;
+            if (players.isEmpty()) return;
 
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Draw all players from the current data
-            for (Player p : currentPlayers) {
-                g2.setColor(p.getColor());
+            // Calculate scale to fit all players
+            int panelWidth = getWidth();
+            int panelHeight = getHeight();
 
-                // Draw player as a circle
-                int playerSize = 20;
-                int x = p.getX();
-                int y = p.getY();
+            double scaleX = (double) panelWidth / canvasWidth;
+            double scaleY = (double) panelHeight / canvasHeight;
+            double scale = Math.min(scaleX, scaleY);
 
-                // Fill circle for player
-                g2.fillOval(x, y, playerSize, playerSize);
+            // Draw grid (optional)
+            drawGrid(g2d, scale);
 
-                // Draw outline
-                g2.setColor(Color.BLACK);
-                g2.drawOval(x, y, playerSize, playerSize);
+            // Draw all players
+            for (Map.Entry<Integer, PlayerData> entry : players.entrySet()) {
+                PlayerData player = entry.getValue();
+                int scaledX = (int) (player.x * scale);
+                int scaledY = (int) (player.y * scale);
+                int scaledSize = (int) (PLAYER_SIZE * scale);
+
+                // Draw player
+                g2d.setColor(player.color);
+                g2d.fillOval(scaledX, scaledY, scaledSize, scaledSize);
 
                 // Draw player ID
-                g2.setColor(Color.WHITE);
-                g2.setFont(new Font("Arial", Font.BOLD, 10));
-                String idText = String.valueOf(p.getID());
-                FontMetrics fm = g2.getFontMetrics();
-                int textWidth = fm.stringWidth(idText);
-                int textHeight = fm.getHeight();
-                g2.drawString(idText,
-                        x + (playerSize - textWidth) / 2,
-                        y + (playerSize + textHeight) / 2 - 2);
-
-                // If this is the local player, draw a highlight
-                if (clientApp != null && p.getID() == clientApp.ID) {
-                    g2.setColor(Color.YELLOW);
-                    g2.drawOval(x - 2, y - 2, playerSize + 4, playerSize + 4);
+                g2d.setColor(Color.WHITE);
+                g2d.setFont(new Font("Arial", Font.BOLD, (int)(12 * scale)));
+                String idText = String.valueOf(entry.getKey());
+                if (entry.getKey() == clientID) {
+                    idText += " (You)";
                 }
+                g2d.drawString(idText, scaledX, scaledY - 5);
+
+                // Draw player info
+                String posText = "(" + player.x + "," + player.y + ")";
+                g2d.drawString(posText, scaledX, scaledY + scaledSize + 15);
+            }
+
+            // Draw HUD
+            drawHUD(g2d);
+        }
+
+        private void drawGrid(Graphics2D g2d, double scale) {
+            g2d.setColor(new Color(50, 50, 50));
+            int gridSize = 50;
+
+            for (int x = 0; x <= canvasWidth; x += gridSize) {
+                int scaledX = (int) (x * scale);
+                g2d.drawLine(scaledX, 0, scaledX, (int)(canvasHeight * scale));
+            }
+
+            for (int y = 0; y <= canvasHeight; y += gridSize) {
+                int scaledY = (int) (y * scale);
+                g2d.drawLine(0, scaledY, (int)(canvasWidth * scale), scaledY);
             }
         }
 
-        @Override
-        public Dimension getPreferredSize() {
-            return new Dimension(panelWidth, panelHeight);
+        private void drawHUD(Graphics2D g2d) {
+            int panelWidth = getWidth();
+
+            // Draw info panel
+            g2d.setColor(new Color(0, 0, 0, 180));
+            g2d.fillRect(10, 10, 200, 120);
+
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("Arial", Font.BOLD, 14));
+            g2d.drawString("Counter Strike 3", 15, 30);
+
+            g2d.setFont(new Font("Arial", Font.PLAIN, 12));
+            g2d.drawString("Your ID: " + clientID, 15, 50);
+            g2d.drawString("Players: " + players.size(), 15, 70);
+            g2d.drawString("Canvas: " + canvasWidth + "x" + canvasHeight, 15, 90);
+            g2d.drawString("Controls: WASD or Arrow Keys", 15, 110);
+
+            // Draw controls reminder in bottom right
+            String controls = "Movement: WASD/Arrows | Close: ESC";
+            int textWidth = g2d.getFontMetrics().stringWidth(controls);
+            g2d.drawString(controls, panelWidth - textWidth - 10, getHeight() - 10);
+        }
+    }
+
+    // Inner class for player data
+    private static class PlayerData {
+        int x, y;
+        Color color;
+
+        PlayerData(int x, int y, Color color) {
+            this.x = x;
+            this.y = y;
+            this.color = color;
         }
     }
 }
