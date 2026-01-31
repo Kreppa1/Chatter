@@ -276,7 +276,7 @@ public class Server {
         catch (Exception ignore){
             whisper("!! Invalid format.",client,serverDummy);
         }
-        whisper("!! Invalid command.",client,serverDummy);
+        whisper("!! Invalid command: "+command,client,serverDummy);
     }
 
     public void changeClientName(ClientObject client, String newName){
@@ -284,24 +284,24 @@ public class Server {
             client.clientName=newName;
             whisper("// Username edited: "+client.clientName,client,serverDummy);
         }
-        else whisper("// Username allready taken, no changes apply", client, serverDummy);
+        else whisper("!! Username allready taken", client, serverDummy);
     }
     public void changeClientRole(ClientObject client, int roleID, String token){
         RoleObject targetRole=getRoleByID(roleID);
         if (targetRole==null){
-            whisper("// The user group you specified is not initialized",client,serverDummy);
+            whisper("!! The server group you specified is not initialized",client,serverDummy);
             return;
         }
         if (targetRole.roleToken==null) {
-            whisper("// The user group you specified is a system role only.",client,serverDummy);
+            whisper("!! The server group you specified is a system role only.",client,serverDummy);
             return;
         }
         if (token.equals(targetRole.roleToken)){
             client.clientRole=targetRole;
-            whisper("// User group assigned: "+client.clientRole.roleName+" ("+client.clientRole.roleID+")",client,serverDummy);
+            whisper("// Server group assigned: "+client.clientRole.roleName+" ("+client.clientRole.roleID+")",client,serverDummy);
         }
         else{
-            whisper("// The token you entered is invalid, no changes apply.",client,serverDummy);
+            whisper("!! The token you entered is invalid.",client,serverDummy);
         }
     }
     public void switchClientChannel(ClientObject client, int newChannel){
@@ -321,7 +321,7 @@ public class Server {
         }
         client.clientChannel=newChannel;
         broadcast("// User disconnected from your channel: "+client.getDisplayName(),oldChannel,serverDummy,client);
-        broadcast("// User joined your channel: "+client.getDisplayName(), client.clientChannel,serverDummy,client);
+        broadcast("// User entered your channel: "+client.getDisplayName(), client.clientChannel,serverDummy,client);
         whisper("// Channel switched: "+getChannelByID(client.clientChannel).channelName+" ("+client.clientChannel+")",client,serverDummy);
         String[] welcomeMessages=channelObject.getWelcomeMessages();
         if(welcomeMessages!=null){
@@ -336,8 +336,8 @@ public class Server {
     public void kickClientFromChannel(ClientObject client, String msg){
         int oldChannel=client.clientChannel;
         client.clientChannel=default_channel;
-        broadcast("// User disconnected from your channel: "+client.getDisplayName(),oldChannel,serverDummy,client);
-        broadcast("// User joined your channel: "+client.getDisplayName(), client.clientChannel,serverDummy,client);
+        broadcast("// User was kicked out of your channel: "+client.getDisplayName(),oldChannel,serverDummy,client);
+        broadcast("// User was kicked to your channel: "+client.getDisplayName(), client.clientChannel,serverDummy,client);
         if (msg!=null) whisper("!! You were kicked from the channel: "+msg,client,serverDummy);
         else whisper("!! You were kicked from the channel.",client,serverDummy);
         String[] welcomeMessages=default_channel_welcome;
@@ -362,7 +362,7 @@ public class Server {
         }
         target.clientChannel=newChannel;
         broadcast("// User disconnected from your channel: "+target.getDisplayName(),oldChannel,serverDummy,target);
-        broadcast("// User joined your channel: "+target.getDisplayName(), client.clientChannel,serverDummy,target);
+        broadcast("// User entered your channel: "+target.getDisplayName(), client.clientChannel,serverDummy,target);
         whisper("// You were moved: "+getChannelByID(target.clientChannel).channelName+" ("+target.clientChannel+")",target,serverDummy);
         String[] welcomeMessages=channelObject.getWelcomeMessages();
         if(welcomeMessages!=null){
@@ -383,9 +383,11 @@ public class Server {
     public void kickClient(ClientObject target, String reason, ClientObject client) throws IOException {
         String targetName=target.getDisplayName();
         int targetID=clients.indexOf(target);
+        int targetChannel=target.clientChannel;
         whisper("!! You have been kicked from the server: "+reason,target,serverDummy);
         disconnectClient(target);
         whisper("// Client kicked: "+targetName+" ("+targetID+")", client, serverDummy);
+        broadcast("// User in your channel was kicked from the server.", targetChannel,serverDummy,null);
     }
     public void disconnectClient(ClientObject target) throws IOException{
         whisper("// Disconnected.",target,serverDummy);
