@@ -75,6 +75,7 @@ public class ChatUI {
                     switch (param[1]){
                         case "theme":
                             if (clientApp.swapUITheme(param[2])) {
+                                if (playSounds) soundHandler.playForString("## Theme changed");
                                 appendMessage("Client --> Theme changed.\n", Color.blue,true);
                                 return;
                             } else {
@@ -83,10 +84,12 @@ public class ChatUI {
                         case "sound":
                             if (param[2].equals("true")) {
                                 playSounds = true;
+                                if (playSounds) soundHandler.playForString("## Sound resumed");
                                 appendMessage("Client --> Sound resumed.\n", Color.blue,true);
                                 return;
                             }
                             else if (param[2].equals("false")) {
+                                if (playSounds) soundHandler.playForString("## Sound muted");
                                 playSounds = false;
                                 appendMessage("Client --> Sound muted.\n", Color.blue,true);
                                 return;
