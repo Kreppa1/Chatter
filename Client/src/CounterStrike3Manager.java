@@ -15,23 +15,23 @@ public class CounterStrike3Manager {
     private Map<Integer, PlayerData> players = new HashMap<>();
     private boolean isActive = false;
 
-    // Player movement variables
-    private boolean upPressed = false;
-    private boolean downPressed = false;
-    private boolean leftPressed = false;
-    private boolean rightPressed = false;
+    private double moveX = 0;
+    private double moveY = 0;
     private final int MOVEMENT_SPEED = 5;
+    int PLAYER_SIZE = 20;
+
+    private int mapGridSize;
+    private Color[][] mapColors;
 
     public CounterStrike3Manager(ClientApplication clientApp) {
         this.clientApp = clientApp;
-        initializeGameFrame();
     }
 
     private void initializeGameFrame() {
         gameFrame = new JFrame("Counter Strike 3 - " + clientApp.getName());
         gameFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        gameFrame.setSize(800, 600);
-        gameFrame.setLocationRelativeTo(null);
+
+        gameFrame.setSize(canvasWidth + 16, canvasHeight + 39); // +16 for borders, +39 for title bar
 
         gamePanel = new GamePanel();
         gameFrame.add(gamePanel);
@@ -43,7 +43,7 @@ public class CounterStrike3Manager {
         InputMap inputMap = gamePanel.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap actionMap = gamePanel.getActionMap();
 
-        // Key pressed actions
+        // Key pressed actions - set direction components
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, false), "upPressed");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0, false), "downPressed");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, false), "leftPressed");
@@ -53,7 +53,7 @@ public class CounterStrike3Manager {
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0, false), "leftPressed");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0, false), "rightPressed");
 
-        // Key released actions
+        // Key released actions - clear direction components
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0, true), "upReleased");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0, true), "downReleased");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_A, 0, true), "leftReleased");
@@ -67,7 +67,7 @@ public class CounterStrike3Manager {
         actionMap.put("upPressed", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                upPressed = true;
+                moveY = -1;
                 updateMovement();
             }
         });
@@ -75,7 +75,7 @@ public class CounterStrike3Manager {
         actionMap.put("downPressed", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                downPressed = true;
+                moveY = 1;
                 updateMovement();
             }
         });
@@ -83,7 +83,7 @@ public class CounterStrike3Manager {
         actionMap.put("leftPressed", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                leftPressed = true;
+                moveX = -1;
                 updateMovement();
             }
         });
@@ -91,7 +91,7 @@ public class CounterStrike3Manager {
         actionMap.put("rightPressed", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                rightPressed = true;
+                moveX = 1;
                 updateMovement();
             }
         });
@@ -100,7 +100,7 @@ public class CounterStrike3Manager {
         actionMap.put("upReleased", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                upPressed = false;
+                moveY = moveY < 0 ? 0 : moveY;
                 updateMovement();
             }
         });
@@ -108,7 +108,7 @@ public class CounterStrike3Manager {
         actionMap.put("downReleased", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                downPressed = false;
+                moveY = moveY > 0 ? 0 : moveY;
                 updateMovement();
             }
         });
@@ -116,7 +116,7 @@ public class CounterStrike3Manager {
         actionMap.put("leftReleased", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                leftPressed = false;
+                moveX = moveX < 0 ? 0 : moveX;
                 updateMovement();
             }
         });
@@ -124,7 +124,7 @@ public class CounterStrike3Manager {
         actionMap.put("rightReleased", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                rightPressed = false;
+                moveX = moveX > 0 ? 0 : moveX;
                 updateMovement();
             }
         });
@@ -133,35 +133,130 @@ public class CounterStrike3Manager {
         Timer movementTimer = new Timer(50, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (isActive && (upPressed || downPressed || leftPressed || rightPressed)) {
+                if (isActive && (moveX != 0 || moveY != 0)) {
                     updateMovement();
                 }
             }
         });
         movementTimer.start();
     }
-
     private void updateMovement() {
         if (clientID == -1) return;
 
         PlayerData myPlayer = players.get(clientID);
         if (myPlayer == null) return;
 
+        // Normalize the movement vector if moving diagonally
+        double moveMagnitude = Math.sqrt(moveX * moveX + moveY * moveY);
+        double normalizedX = 0;
+        double normalizedY = 0;
+
+        if (moveMagnitude > 0) {
+            normalizedX = moveX / moveMagnitude;
+            normalizedY = moveY / moveMagnitude;
+        }
+
+        // Calculate new position
         int newX = myPlayer.x;
         int newY = myPlayer.y;
 
-        if (upPressed) newY -= MOVEMENT_SPEED;
-        if (downPressed) newY += MOVEMENT_SPEED;
-        if (leftPressed) newX -= MOVEMENT_SPEED;
-        if (rightPressed) newX += MOVEMENT_SPEED;
+        // Check X movement first (slide along walls)
+        if (normalizedX != 0) {
+            int tempX = myPlayer.x + (int)(normalizedX * MOVEMENT_SPEED);
+            if (isValidPosition(tempX, myPlayer.y)) {
+                newX = tempX;
+            }
+        }
 
-        // Keep within bounds
-        newX = Math.max(0, Math.min(canvasWidth - 20, newX));
-        newY = Math.max(0, Math.min(canvasHeight - 20, newY));
+        // Check Y movement
+        if (normalizedY != 0) {
+            int tempY = myPlayer.y + (int)(normalizedY * MOVEMENT_SPEED);
+            if (isValidPosition(newX, tempY)) {
+                newY = tempY;
+            }
+        }
 
-        // Send update to server
-        String command = "/set cs3 position " + clientID + " " + newX + " " + newY;
-        clientApp.sendMessage(command);
+        // If we couldn't move in either direction, try the other axis first
+        if (newX == myPlayer.x && newY == myPlayer.y) {
+            // Try Y then X
+            if (normalizedY != 0) {
+                int tempY = myPlayer.y + (int)(normalizedY * MOVEMENT_SPEED);
+                if (isValidPosition(myPlayer.x, tempY)) {
+                    newY = tempY;
+                }
+            }
+            if (normalizedX != 0) {
+                int tempX = myPlayer.x + (int)(normalizedX * MOVEMENT_SPEED);
+                if (isValidPosition(tempX, newY)) {
+                    newX = tempX;
+                }
+            }
+        }
+
+        // Send update if position changed
+        if (newX != myPlayer.x || newY != myPlayer.y) {
+            String command = "/set cs3 position " + clientID + " " + newX + " " + newY;
+            clientApp.sendMessage(command);
+            // Optimistically update local position
+            players.put(clientID, new PlayerData(newX, newY, myPlayer.color));
+        }
+
+        // Repaint to show movement
+        if (gamePanel != null) {
+            gamePanel.repaint();
+        }
+    }
+
+    private boolean isValidPosition(int x, int y) {
+        int playerCenterX = x + PLAYER_SIZE / 2;
+        int playerCenterY = y + PLAYER_SIZE / 2;
+        int playerRadius = PLAYER_SIZE / 2;
+
+        if (playerCenterX < playerRadius || playerCenterX >= canvasWidth - playerRadius ||
+                playerCenterY < playerRadius || playerCenterY >= canvasHeight - playerRadius) {
+            return false;
+        }
+
+        if (mapColors != null && mapGridSize > 0) {
+            int tileSize = canvasWidth / mapGridSize;
+
+            int minTileX = Math.max(0, (playerCenterX - playerRadius) / tileSize);
+            int maxTileX = Math.min(mapGridSize - 1, (playerCenterX + playerRadius) / tileSize);
+            int minTileY = Math.max(0, (playerCenterY - playerRadius) / tileSize);
+            int maxTileY = Math.min(mapGridSize - 1, (playerCenterY + playerRadius) / tileSize);
+
+            for (int tileY = minTileY; tileY <= maxTileY; tileY++) {
+                for (int tileX = minTileX; tileX <= maxTileX; tileX++) {
+                    Color tileColor = mapColors[tileY][tileX];
+                    // Check if NOT pure white (solid)
+                    if (!(tileColor.getRed() == 255 &&
+                            tileColor.getGreen() == 255 &&
+                            tileColor.getBlue() == 255)) {
+
+                        int tileLeft = tileX * tileSize;
+                        int tileRight = tileLeft + tileSize;
+                        int tileTop = tileY * tileSize;
+                        int tileBottom = tileTop + tileSize;
+
+                        int closestX = clamp(playerCenterX, tileLeft, tileRight);
+                        int closestY = clamp(playerCenterY, tileTop, tileBottom);
+
+                        int dx = playerCenterX - closestX;
+                        int dy = playerCenterY - closestY;
+                        int distanceSquared = dx * dx + dy * dy;
+
+                        if (distanceSquared < playerRadius * playerRadius) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     public void processCounterStrike3Data(String data) {
@@ -182,7 +277,6 @@ public class CounterStrike3Manager {
             }
         }
     }
-
     private void parseWelcomeMessage(String data) {
         try {
             // Extract ID: "welcome you(0):c(1000,1000)"
@@ -197,18 +291,58 @@ public class CounterStrike3Manager {
             canvasWidth = Integer.parseInt(sizeParts[0]);
             canvasHeight = Integer.parseInt(sizeParts[1]);
 
+            System.out.println("Canvas size received: " + canvasWidth + "x" + canvasHeight);
+
+            // Now initialize game frame with correct size
+            if (gameFrame == null) {
+                initializeGameFrame();
+            } else {
+                // Update existing frame size
+                gameFrame.setSize(canvasWidth + 16, canvasHeight + 39);
+                gamePanel.setPreferredSize(new Dimension(canvasWidth, canvasHeight));
+                gameFrame.pack();
+            }
+
+            if (data.contains(":m(")) {
+                int mapStart = data.indexOf(":m(") + 3;
+                String mapData = data.substring(mapStart);
+
+                // Extract grid size
+                int gridStart = mapData.indexOf("s(") + 2;
+                int gridEnd = mapData.indexOf(")", gridStart);
+                mapGridSize = Integer.parseInt(mapData.substring(gridStart, gridEnd));
+
+                // Extract color values
+                int valuesStart = mapData.indexOf("v(") + 2;
+                int valuesEnd = mapData.indexOf(")", valuesStart);
+                String colorValues = mapData.substring(valuesStart, valuesEnd);
+
+                mapColors = new Color[mapGridSize][mapGridSize];
+                int index = 0;
+                for (int y = 0; y < mapGridSize; y++) {
+                    for (int x = 0; x < mapGridSize; x++) {
+                        if (index + 5 < colorValues.length()) {
+                            String hex = colorValues.substring(index, index + 6);
+                            int rgb = Integer.parseInt(hex, 16);
+                            mapColors[y][x] = new Color(rgb);
+                            index += 6;
+                        }
+                    }
+                }
+            }
+
             // Add initial player data
             players.put(clientID, new PlayerData(0, 0, Color.GREEN));
+
+            showGameWindow();
+            isActive = true;
 
         } catch (Exception e) {
             System.err.println("Error parsing welcome message: " + e.getMessage());
         }
     }
-
     private void parsePlayerUpdate(String data) {
-        players.clear();
 
-        // Split by "):" to get individual player data
         String[] playerStrings = data.split(":");
 
         for (String playerStr : playerStrings) {
@@ -232,8 +366,8 @@ public class CounterStrike3Manager {
                     int b = Integer.parseInt(parts[5]);
 
                     Color color = new Color(r, g, b);
-                    players.put(id, new PlayerData(x, y, color));
 
+                    players.put(id, new PlayerData(x, y, color));
                 } catch (NumberFormatException e) {
                     System.err.println("Error parsing player data: " + playerStr);
                 }
@@ -255,82 +389,86 @@ public class CounterStrike3Manager {
         isActive = false;
     }
 
-    // Inner class for game panel
+
+
     private class GamePanel extends JPanel {
         private final int PLAYER_SIZE = 20;
 
         public GamePanel() {
             setBackground(Color.BLACK);
-            setPreferredSize(new Dimension(800, 600));
+            // Set panel to actual canvas size
+            setPreferredSize(new Dimension(canvasWidth, canvasHeight));
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
 
-            if (players.isEmpty()) return;
-
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // Calculate scale to fit all players
-            int panelWidth = getWidth();
-            int panelHeight = getHeight();
+            // NO SCALING - draw at 1:1 pixel ratio
+            // Draw map
+            drawMap(g2d);
 
-            double scaleX = (double) panelWidth / canvasWidth;
-            double scaleY = (double) panelHeight / canvasHeight;
-            double scale = Math.min(scaleX, scaleY);
-
-            // Draw grid (optional)
-            drawGrid(g2d, scale);
-
-            // Draw all players
+            // Draw players
             for (Map.Entry<Integer, PlayerData> entry : players.entrySet()) {
                 PlayerData player = entry.getValue();
-                int scaledX = (int) (player.x * scale);
-                int scaledY = (int) (player.y * scale);
-                int scaledSize = (int) (PLAYER_SIZE * scale);
+                int playerRadius = PLAYER_SIZE / 2;
+                int playerCenterX = player.x + playerRadius;
+                int playerCenterY = player.y + playerRadius;
 
-                // Draw player
+                // Draw player as circle from center (NO SCALING)
                 g2d.setColor(player.color);
-                g2d.fillOval(scaledX, scaledY, scaledSize, scaledSize);
+                g2d.fillOval(playerCenterX - playerRadius, playerCenterY - playerRadius,
+                        PLAYER_SIZE, PLAYER_SIZE);
 
                 // Draw player ID
                 g2d.setColor(Color.WHITE);
-                g2d.setFont(new Font("Arial", Font.BOLD, (int)(12 * scale)));
+                g2d.setFont(new Font("Arial", Font.BOLD, 12));
                 String idText = String.valueOf(entry.getKey());
                 if (entry.getKey() == clientID) {
                     idText += " (You)";
                 }
-                g2d.drawString(idText, scaledX, scaledY - 5);
-
-                // Draw player info
-                String posText = "(" + player.x + "," + player.y + ")";
-                g2d.drawString(posText, scaledX, scaledY + scaledSize + 15);
+                g2d.drawString(idText, player.x, player.y - 5);
             }
 
-            // Draw HUD
             drawHUD(g2d);
         }
 
-        private void drawGrid(Graphics2D g2d, double scale) {
-            g2d.setColor(new Color(50, 50, 50));
-            int gridSize = 50;
+        private void drawMap(Graphics2D g2d) {
+            if (mapColors == null || mapGridSize <= 0) return;
 
-            for (int x = 0; x <= canvasWidth; x += gridSize) {
-                int scaledX = (int) (x * scale);
-                g2d.drawLine(scaledX, 0, scaledX, (int)(canvasHeight * scale));
-            }
+            int tileSize = canvasWidth / mapGridSize;
 
-            for (int y = 0; y <= canvasHeight; y += gridSize) {
-                int scaledY = (int) (y * scale);
-                g2d.drawLine(0, scaledY, (int)(canvasWidth * scale), scaledY);
+            for (int y = 0; y < mapGridSize; y++) {
+                for (int x = 0; x < mapGridSize; x++) {
+                    int tileX = x * tileSize;
+                    int tileY = y * tileSize;
+
+                    Color tileColor = mapColors[y][x];
+
+                    // Draw the actual color from the map
+                    g2d.setColor(tileColor);
+                    g2d.fillRect(tileX, tileY, tileSize, tileSize);
+
+                    // Add transparency for walkable areas (pure white)
+                    if (tileColor.getRed() == 255 &&
+                            tileColor.getGreen() == 255 &&
+                            tileColor.getBlue() == 255) {
+                        // Walkable area - make semi-transparent
+                        g2d.setColor(new Color(255, 255, 255, 50));
+                        g2d.fillRect(tileX, tileY, tileSize, tileSize);
+                    }
+
+                    // Draw grid lines
+                    //g2d.setColor(Color.DARK_GRAY);
+                    //g2d.drawRect(tileX, tileY, tileSize, tileSize);
+                }
             }
         }
 
         private void drawHUD(Graphics2D g2d) {
-            int panelWidth = getWidth();
-
             // Draw info panel
             g2d.setColor(new Color(0, 0, 0, 180));
             g2d.fillRect(10, 10, 200, 120);
@@ -344,11 +482,6 @@ public class CounterStrike3Manager {
             g2d.drawString("Players: " + players.size(), 15, 70);
             g2d.drawString("Canvas: " + canvasWidth + "x" + canvasHeight, 15, 90);
             g2d.drawString("Controls: WASD or Arrow Keys", 15, 110);
-
-            // Draw controls reminder in bottom right
-            String controls = "Movement: WASD/Arrows | Close: ESC";
-            int textWidth = g2d.getFontMetrics().stringWidth(controls);
-            g2d.drawString(controls, panelWidth - textWidth - 10, getHeight() - 10);
         }
     }
 
