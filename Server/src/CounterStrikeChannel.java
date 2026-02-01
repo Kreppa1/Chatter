@@ -15,7 +15,7 @@ public class CounterStrikeChannel extends ChannelObject{
     public List<PlayerObject> players = new ArrayList<PlayerObject>(); //All players
     List<PlayerObject> playerCopy = new ArrayList<>(); //Just the real players, no chaser
     PlayerObject chaser = null; //chaser
-    boolean[][] map;
+    Color[][] mapColors;
     int mapGridSize = 32;
     int PLAYER_SIZE = 20;
 
@@ -42,11 +42,17 @@ public class CounterStrikeChannel extends ChannelObject{
         else p = new PlayerObject(findValidSpawnPosition(), Color.blue, false);
         players.add(p);
         updatePlayerLists();
+
         String welcomeString = "§cs3 welcome you("+players.indexOf(p)+"):c("+X+","+Y+")";
         String mapString = ":m(s(" + mapGridSize + ")" + "v(";
+
         for(int y = 0; y < mapGridSize; y++) {
             for(int x = 0; x < mapGridSize; x++){
-                mapString += map[y][x] ? "0" : "1";
+                Color color = mapColors[y][x];
+                // Encode color as 6-digit hex (RRGGBB)
+                String hex = String.format("%02X%02X%02X",
+                        color.getRed(), color.getGreen(), color.getBlue());
+                mapString += hex;
             }
         }
         mapString += "))";
@@ -56,13 +62,19 @@ public class CounterStrikeChannel extends ChannelObject{
     private Point findValidSpawnPosition() {
         int tileSize = X / mapGridSize;
         Random rand = new Random();
-        //Chaser spawn
+
+        // Chaser spawn
         if (chaser == null) {
             for (int i = 0; i < 1000; i++) {
                 int tx = rand.nextInt(mapGridSize);
                 int ty = rand.nextInt(mapGridSize);
 
-                if (!map[ty][tx]) {
+                // Check if the tile is walkable (pure white)
+                Color tileColor = mapColors[ty][tx];
+                if (tileColor.getRed() == 255 &&
+                        tileColor.getGreen() == 255 &&
+                        tileColor.getBlue() == 255) {
+
                     int px = tx * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
                     int py = ty * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
                     return new Point(px, py);
@@ -73,7 +85,12 @@ public class CounterStrikeChannel extends ChannelObject{
                 int tx = rand.nextInt(mapGridSize);
                 int ty = rand.nextInt(mapGridSize);
 
-                if (!map[ty][tx]) {
+                // Check if the tile is walkable (pure white)
+                Color tileColor = mapColors[ty][tx];
+                if (tileColor.getRed() == 255 &&
+                        tileColor.getGreen() == 255 &&
+                        tileColor.getBlue() == 255) {
+
                     int px = tx * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
                     int py = ty * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
 
@@ -86,12 +103,18 @@ public class CounterStrikeChannel extends ChannelObject{
                     }
                 }
             }
-            // if nothing found at least 200px away
+
+            // If nothing found at least 200px away
             for (int i = 0; i < 1000; i++) {
                 int tx = rand.nextInt(mapGridSize);
                 int ty = rand.nextInt(mapGridSize);
 
-                if (!map[ty][tx]) {
+                // Check if the tile is walkable (pure white)
+                Color tileColor = mapColors[ty][tx];
+                if (tileColor.getRed() == 255 &&
+                        tileColor.getGreen() == 255 &&
+                        tileColor.getBlue() == 255) {
+
                     int px = tx * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
                     int py = ty * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
 
@@ -102,10 +125,16 @@ public class CounterStrikeChannel extends ChannelObject{
                 }
             }
         }
-        //Fallback
+
+        // Fallback - search all tiles systematically
         for (int ty = 0; ty < mapGridSize; ty++) {
             for (int tx = 0; tx < mapGridSize; tx++) {
-                if (!map[ty][tx]) {
+                // Check if the tile is walkable (pure white)
+                Color tileColor = mapColors[ty][tx];
+                if (tileColor.getRed() == 255 &&
+                        tileColor.getGreen() == 255 &&
+                        tileColor.getBlue() == 255) {
+
                     int px = tx * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
                     int py = ty * tileSize + tileSize / 2 - PLAYER_SIZE / 2;
                     return new Point(px, py);
@@ -113,7 +142,7 @@ public class CounterStrikeChannel extends ChannelObject{
             }
         }
 
-        // Ultimate fallback to center
+        // Ultimate fallback to center (even if it's not walkable)
         return new Point(X/2 - PLAYER_SIZE/2, Y/2 - PLAYER_SIZE/2);
     }
 
@@ -196,34 +225,24 @@ public class CounterStrikeChannel extends ChannelObject{
     }
     public void loadMapFromFile(String path) throws IOException {
         BufferedImage img = ImageIO.read(new File(path));
-
-        //if(img.getWidth() != mapGridSize || img.getHeight() != mapGridSize) {
-        //    throw new IllegalArgumentException("Invalid map size, use: [" + mapGridSize + ", " + mapGridSize + "]");
-        //}
-
-        boolean[][] tempMap = new boolean[mapGridSize][mapGridSize];
+        Color[][] tempMap = new Color[mapGridSize][mapGridSize];
 
         for(int y = 0; y < mapGridSize; y++){
             for(int x = 0; x < mapGridSize; x++){
                 int rgb = img.getRGB(x, y);
-                int r = (rgb >> 16) & 0xFF;
-                int g = (rgb >> 8) & 0xFF;
-                int b = rgb & 0xFF;
-
-                tempMap[y][x] = !(r == 255 && g == 255 && b == 255);
+                Color color = new Color(rgb);
+                tempMap[y][x] = color;
             }
         }
-        map = tempMap;
+        mapColors = tempMap;
     }
     boolean isSolid(int px, int py) {
-        // Player is a circle with radius 10 (since PLAYER_SIZE = 20)
+        // Pure white (255,255,255) is walkable, everything else is solid
         int playerRadius = 10;
         int playerCenterX = px + playerRadius;
         int playerCenterY = py + playerRadius;
-
         int tileSize = X / mapGridSize;
 
-        // Check all tiles the player circle could intersect
         int minTileX = Math.max(0, (playerCenterX - playerRadius) / tileSize);
         int maxTileX = Math.min(mapGridSize - 1, (playerCenterX + playerRadius) / tileSize);
         int minTileY = Math.max(0, (playerCenterY - playerRadius) / tileSize);
@@ -231,30 +250,30 @@ public class CounterStrikeChannel extends ChannelObject{
 
         for (int tileY = minTileY; tileY <= maxTileY; tileY++) {
             for (int tileX = minTileX; tileX <= maxTileX; tileX++) {
-                if (map[tileY][tileX]) { // Tile is solid
-                    // Tile bounds
+                Color tileColor = mapColors[tileY][tileX];
+                // Check if NOT pure white (walkable)
+                if (!(tileColor.getRed() == 255 &&
+                        tileColor.getGreen() == 255 &&
+                        tileColor.getBlue() == 255)) {
+
                     int tileLeft = tileX * tileSize;
                     int tileRight = tileLeft + tileSize;
                     int tileTop = tileY * tileSize;
                     int tileBottom = tileTop + tileSize;
 
-                    // Find closest point on tile to player center
                     int closestX = clamp(playerCenterX, tileLeft, tileRight);
                     int closestY = clamp(playerCenterY, tileTop, tileBottom);
 
-                    // Calculate distance
                     int dx = playerCenterX - closestX;
                     int dy = playerCenterY - closestY;
                     int distanceSquared = dx * dx + dy * dy;
 
-                    // Check if circle intersects rectangle
                     if (distanceSquared < playerRadius * playerRadius) {
                         return true;
                     }
                 }
             }
         }
-
         return false;
     }
 
@@ -266,24 +285,24 @@ public class CounterStrikeChannel extends ChannelObject{
         int playerRadius = 10;
         int playerCenterX = p.x + playerRadius;
         int playerCenterY = p.y + playerRadius;
-
         int tileSize = X / mapGridSize;
 
-        // Find which tile the player is colliding with
         for (int tileY = 0; tileY < mapGridSize; tileY++) {
             for (int tileX = 0; tileX < mapGridSize; tileX++) {
-                if (map[tileY][tileX]) { // Solid tile
-                    // Tile bounds
+                Color tileColor = mapColors[tileY][tileX];
+                // Check if NOT pure white (solid)
+                if (!(tileColor.getRed() == 255 &&
+                        tileColor.getGreen() == 255 &&
+                        tileColor.getBlue() == 255)) {
+
                     int tileLeft = tileX * tileSize;
                     int tileRight = tileLeft + tileSize;
                     int tileTop = tileY * tileSize;
                     int tileBottom = tileTop + tileSize;
 
-                    // Find closest point on tile to player center
                     int closestX = clamp(playerCenterX, tileLeft, tileRight);
                     int closestY = clamp(playerCenterY, tileTop, tileBottom);
 
-                    // Calculate distance
                     int dx = playerCenterX - closestX;
                     int dy = playerCenterY - closestY;
                     int distanceSquared = dx * dx + dy * dy;

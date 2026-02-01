@@ -21,7 +21,7 @@ public class CounterStrike3Manager {
     int PLAYER_SIZE = 20;
 
     private int mapGridSize;
-    private boolean[][] map;
+    private Color[][] mapColors;
 
     public CounterStrike3Manager(ClientApplication clientApp) {
         this.clientApp = clientApp;
@@ -217,14 +217,8 @@ public class CounterStrike3Manager {
             return false;
         }
 
-        if (map != null && mapGridSize > 0) {
-            int tileSize = canvasWidth / mapGridSize; // Actual tile size in pixels
-
-            // Check for exact divisibility
-            if (canvasWidth % mapGridSize != 0) {
-                System.err.println("WARNING: canvasWidth " + canvasWidth +
-                        " not divisible by mapGridSize " + mapGridSize);
-            }
+        if (mapColors != null && mapGridSize > 0) {
+            int tileSize = canvasWidth / mapGridSize;
 
             int minTileX = Math.max(0, (playerCenterX - playerRadius) / tileSize);
             int maxTileX = Math.min(mapGridSize - 1, (playerCenterX + playerRadius) / tileSize);
@@ -233,7 +227,12 @@ public class CounterStrike3Manager {
 
             for (int tileY = minTileY; tileY <= maxTileY; tileY++) {
                 for (int tileX = minTileX; tileX <= maxTileX; tileX++) {
-                    if (map[tileY][tileX]) {
+                    Color tileColor = mapColors[tileY][tileX];
+                    // Check if NOT pure white (solid)
+                    if (!(tileColor.getRed() == 255 &&
+                            tileColor.getGreen() == 255 &&
+                            tileColor.getBlue() == 255)) {
+
                         int tileLeft = tileX * tileSize;
                         int tileRight = tileLeft + tileSize;
                         int tileTop = tileY * tileSize;
@@ -308,29 +307,28 @@ public class CounterStrike3Manager {
                 int mapStart = data.indexOf(":m(") + 3;
                 String mapData = data.substring(mapStart);
 
-                // Extract grid size: "s(32)"
+                // Extract grid size
                 int gridStart = mapData.indexOf("s(") + 2;
                 int gridEnd = mapData.indexOf(")", gridStart);
                 mapGridSize = Integer.parseInt(mapData.substring(gridStart, gridEnd));
 
-                // Extract map values: "v(...)"
+                // Extract color values
                 int valuesStart = mapData.indexOf("v(") + 2;
                 int valuesEnd = mapData.indexOf(")", valuesStart);
-                String mapValues = mapData.substring(valuesStart, valuesEnd);
+                String colorValues = mapData.substring(valuesStart, valuesEnd);
 
-                map = new boolean[mapGridSize][mapGridSize];
+                mapColors = new Color[mapGridSize][mapGridSize];
                 int index = 0;
                 for (int y = 0; y < mapGridSize; y++) {
                     for (int x = 0; x < mapGridSize; x++) {
-                        if (index < mapValues.length()) {
-                            map[y][x] = mapValues.charAt(index) == '0';
-                            index++;
+                        if (index + 5 < colorValues.length()) {
+                            String hex = colorValues.substring(index, index + 6);
+                            int rgb = Integer.parseInt(hex, 16);
+                            mapColors[y][x] = new Color(rgb);
+                            index += 6;
                         }
                     }
                 }
-
-                System.out.println("Map loaded: " + mapGridSize + "x" + mapGridSize +
-                        " with " + mapValues.length() + " values");
             }
 
             // Add initial player data
@@ -439,25 +437,33 @@ public class CounterStrike3Manager {
         }
 
         private void drawMap(Graphics2D g2d) {
-            if (map == null || mapGridSize <= 0) return;
+            if (mapColors == null || mapGridSize <= 0) return;
 
-            int tileSize = canvasWidth / mapGridSize; // Actual pixel size of tiles
-
+            int tileSize = canvasWidth / mapGridSize;
 
             for (int y = 0; y < mapGridSize; y++) {
                 for (int x = 0; x < mapGridSize; x++) {
                     int tileX = x * tileSize;
                     int tileY = y * tileSize;
 
-                    if (map[y][x]) { // If solid (true)
-                        g2d.setColor(new Color(100, 100, 100, 200)); // Gray for walls
-                        g2d.fillRect(tileX, tileY, tileSize, tileSize);
-                        g2d.setColor(Color.DARK_GRAY);
-                        g2d.drawRect(tileX, tileY, tileSize, tileSize);
-                    } else {
-                        g2d.setColor(new Color(200, 200, 200, 50)); // Light color for passable
+                    Color tileColor = mapColors[y][x];
+
+                    // Draw the actual color from the map
+                    g2d.setColor(tileColor);
+                    g2d.fillRect(tileX, tileY, tileSize, tileSize);
+
+                    // Add transparency for walkable areas (pure white)
+                    if (tileColor.getRed() == 255 &&
+                            tileColor.getGreen() == 255 &&
+                            tileColor.getBlue() == 255) {
+                        // Walkable area - make semi-transparent
+                        g2d.setColor(new Color(255, 255, 255, 50));
                         g2d.fillRect(tileX, tileY, tileSize, tileSize);
                     }
+
+                    // Draw grid lines
+                    //g2d.setColor(Color.DARK_GRAY);
+                    //g2d.drawRect(tileX, tileY, tileSize, tileSize);
                 }
             }
         }
