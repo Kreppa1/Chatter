@@ -246,7 +246,7 @@ public class CounterStrikeChannel extends ChannelObject{
                 serverParent.broadcast("// Game Over! Not enough players!",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
                 break;
             }
-            else if (runtime>=20){
+            else if (runtime>=60){
                 serverParent.broadcast("§cs3 end",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
                 serverParent.broadcast("// Game Over! Players Win!",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
                 break;
