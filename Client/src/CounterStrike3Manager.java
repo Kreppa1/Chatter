@@ -2,6 +2,7 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,10 +32,17 @@ public class CounterStrike3Manager {
         gameFrame = new JFrame("Counter Strike 3 - " + clientApp.getName());
         gameFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
-        gameFrame.setSize(canvasWidth + 16, canvasHeight + 39); // +16 for borders, +39 for title bar
-
+        // Create panel first
         gamePanel = new GamePanel();
+
+        // Add panel first
         gameFrame.add(gamePanel);
+
+        // Pack to preferred size
+        gameFrame.pack();
+
+        // Then set size to ensure exact dimensions
+        gameFrame.setSize(canvasWidth, canvasHeight);
 
         setupKeyListeners();
     }
@@ -439,34 +447,47 @@ public class CounterStrike3Manager {
         private void drawMap(Graphics2D g2d) {
             if (mapColors == null || mapGridSize <= 0) return;
 
-            int tileSize = canvasWidth / mapGridSize;
+            // Create a buffered image to draw the map once
+            if (mapBuffer == null || mapBuffer.getWidth() != canvasWidth || mapBuffer.getHeight() != canvasHeight) {
+                mapBuffer = new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D bufferG2d = mapBuffer.createGraphics();
+                bufferG2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            for (int y = 0; y < mapGridSize; y++) {
-                for (int x = 0; x < mapGridSize; x++) {
-                    int tileX = x * tileSize;
-                    int tileY = y * tileSize;
+                // Draw the entire map to the buffer
+                double tileSizeX = (double) canvasWidth / mapGridSize;
+                double tileSizeY = (double) canvasHeight / mapGridSize;
 
-                    Color tileColor = mapColors[y][x];
+                for (int y = 0; y < mapGridSize; y++) {
+                    for (int x = 0; x < mapGridSize; x++) {
+                        int tileX = (int) Math.round(x * tileSizeX);
+                        int tileY = (int) Math.round(y * tileSizeY);
+                        int nextTileX = (int) Math.round((x + 1) * tileSizeX);
+                        int nextTileY = (int) Math.round((y + 1) * tileSizeY);
+                        int width = nextTileX - tileX;
+                        int height = nextTileY - tileY;
 
-                    // Draw the actual color from the map
-                    g2d.setColor(tileColor);
-                    g2d.fillRect(tileX, tileY, tileSize, tileSize);
+                        Color tileColor = mapColors[y][x];
+                        bufferG2d.setColor(tileColor);
+                        bufferG2d.fillRect(tileX, tileY, width, height);
 
-                    // Add transparency for walkable areas (pure white)
-                    if (tileColor.getRed() == 255 &&
-                            tileColor.getGreen() == 255 &&
-                            tileColor.getBlue() == 255) {
-                        // Walkable area - make semi-transparent
-                        g2d.setColor(new Color(255, 255, 255, 50));
-                        g2d.fillRect(tileX, tileY, tileSize, tileSize);
+                        // Add slight overlap to eliminate gaps
+                        if (x < mapGridSize - 1) {
+                            bufferG2d.fillRect(tileX + width - 1, tileY, 1, height);
+                        }
+                        if (y < mapGridSize - 1) {
+                            bufferG2d.fillRect(tileX, tileY + height - 1, width, 1);
+                        }
                     }
-
-                    // Draw grid lines
-                    //g2d.setColor(Color.DARK_GRAY);
-                    //g2d.drawRect(tileX, tileY, tileSize, tileSize);
                 }
+                bufferG2d.dispose();
             }
+
+            // Draw the buffered map
+            g2d.drawImage(mapBuffer, 0, 0, null);
         }
+
+        // Add this as a class field
+        private BufferedImage mapBuffer;
 
         private void drawHUD(Graphics2D g2d) {
             // Draw info panel

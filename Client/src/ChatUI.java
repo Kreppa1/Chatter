@@ -9,7 +9,7 @@ public class ChatUI {
     private JTextField messageField;
     private ClientApplication clientApp;
     private SoundHandler soundHandler;
-    private boolean playSounds = false;
+    private boolean playSounds = true;
 
     public ChatUI(ClientApplication clientApp, String userName) {
         this.clientApp = clientApp;

@@ -1,6 +1,7 @@
 import java.awt.*;
 import java.sql.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -12,12 +13,15 @@ public class CounterStrikeChannel extends ChannelObject{
     Server serverParent;
     public int X;
     public int Y;
-    public List<PlayerObject> players = new ArrayList<PlayerObject>(); //All players
+    public PlayerObject[] players = new PlayerObject[20]; //All players
     List<PlayerObject> playerCopy = new ArrayList<>(); //Just the real players, no chaser
     PlayerObject chaser = null; //chaser
     Color[][] mapColors;
-    int mapGridSize = 32;
+    int mapGridSize = 64;
     int PLAYER_SIZE = 20;
+
+    boolean gameRunning=false;
+    public Thread gameThread;
 
 
     public CounterStrikeChannel(Server serverParent,String channelName, boolean allowMessages, boolean allowAnonymous,String[] welcomeMessages,boolean allowSpam, int width, int height, String mapPath) {
@@ -34,16 +38,20 @@ public class CounterStrikeChannel extends ChannelObject{
         }
     }
 
-    public String joinGame() {
-        PlayerObject p;
-        if(players.isEmpty()){
-            p = new PlayerObject(findValidSpawnPosition(), Color.red, true);
+    synchronized public String joinGame(ClientObject joiningClient) {
+        PlayerObject p=null;
+        for(PlayerObject i : players){
+            if(i!=null) if(i.associatedClient==joiningClient) p=i;
         }
-        else p = new PlayerObject(findValidSpawnPosition(), Color.blue, false);
-        players.add(p);
+        if(p==null){
+            if(filledPlayerLength()==0){
+                p = new PlayerObject(findValidSpawnPosition(), Color.red, true, joiningClient);
+            }
+            else p = new PlayerObject(findValidSpawnPosition(), Color.blue, false, joiningClient);
+            players[firstEmptyPlayerSlot()]=p;
+        }
         updatePlayerLists();
-
-        String welcomeString = "§cs3 welcome you("+players.indexOf(p)+"):c("+X+","+Y+")";
+        String welcomeString = "§cs3 welcome you("+getPlayerIndex(p)+"):c("+X+","+Y+")";
         String mapString = ":m(s(" + mapGridSize + ")" + "v(";
 
         for(int y = 0; y < mapGridSize; y++) {
@@ -56,6 +64,14 @@ public class CounterStrikeChannel extends ChannelObject{
             }
         }
         mapString += "))";
+
+        //GAME ACTIVATOR
+        if(filledPlayerLength()>=2 && gameThread==null){
+            gameRunning=true;
+            gameThread=new Thread(this::generalUpdate);
+            gameThread.start();
+        }
+
         return welcomeString + mapString;
     }
 
@@ -147,12 +163,13 @@ public class CounterStrikeChannel extends ChannelObject{
     }
 
     @Override
-    public String[] getWelcomeMessages() {
+    synchronized public String[] getWelcomeMessages(ClientObject clientObject) {
         if (welcomeMessages == null) welcomeMessages = new String[0];
         String[] result = new String[welcomeMessages.length + 2];
         System.arraycopy(welcomeMessages, 0, result, 0, welcomeMessages.length);
 
-        result[result.length - 2] = joinGame();
+
+        result[result.length - 2] = joinGame(clientObject);
         result[result.length - 1] = "§cs3" + getAllPrinted();
 
         //System.out.println(result);
@@ -162,13 +179,14 @@ public class CounterStrikeChannel extends ChannelObject{
     public String getAllPrinted(){
         String r="";
         for(PlayerObject p : players){
-            r=r+"p("+players.indexOf(p)+","+p.x+","+p.y+","+p.c.getRed()+","+p.c.getGreen()+","+p.c.getBlue()+"):";
+            if(p!=null) r=r+"p("+getPlayerIndex(p)+","+p.x+","+p.y+","+p.c.getRed()+","+p.c.getGreen()+","+p.c.getBlue()+"):";
         }
         return r;
     }
 
     public void setPlayerPosition(int ID, int x, int y){
-        PlayerObject player = players.get(ID);
+        if(!gameRunning) return;
+        PlayerObject player = players[ID];
         int oldX = player.x;
         int oldY = player.y;
 
@@ -184,18 +202,19 @@ public class CounterStrikeChannel extends ChannelObject{
                         ") to (" + player.x + "," + player.y + ")");
             }
         }
+        serverParent.broadcast("§cs3" + getAllPrinted(), serverParent.getIDbyChannel(this), serverParent.serverDummy, null);
 
         checkWin();
-
-        serverParent.broadcast("§cs3" + getAllPrinted(), serverParent.getIDbyChannel(this), serverParent.serverDummy, null);
     }
 
     public void updatePlayerLists(){
         for (PlayerObject i : players) {
-            if (!i.chaser) {   // keep only if boolean is false
-                playerCopy.add(i);
+            if(i!=null){
+                if (!i.chaser) {   // keep only if boolean is false
+                    playerCopy.add(i);
+                }
+                else chaser=i;
             }
-            else chaser=i;
         }
     }
 
@@ -203,13 +222,49 @@ public class CounterStrikeChannel extends ChannelObject{
         //System.out.println("Checking win");
         for(PlayerObject p : playerCopy){
             if(isTouching(p.x,p.y,chaser.x,chaser.y)) {
-                serverParent.broadcast("§cs3 end",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
-                serverParent.broadcast("// Chaser wins!",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
-                serverParent.emptyChannel(serverParent.getIDbyChannel(this),"Game Over!");
-                reset();
+                players[getPlayerIndex(p)]=null;
+                updatePlayerLists();
+                serverParent.broadcast(getAllPrinted(),serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                if (filledPlayerLength()<=1){
+                    if (players[firstFilledPlayerSlot()].chaser){
+                        serverParent.broadcast("§cs3 end",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                        serverParent.broadcast("// Game Over! Chaser wins!",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                        gameRunning=false;
+                    }
+                }
+                //serverParent.broadcast("§cs3 left p("+players.indexOf(p)+")",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
             }
         }
     }
+
+    public void generalUpdate(){
+        System.out.println("Game started");
+        int runtime=0;
+        while (gameRunning){
+            if(filledPlayerLength()<=1){
+                serverParent.broadcast("§cs3 end",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                serverParent.broadcast("// Game Over! Not enough players!",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                break;
+            }
+            else if (runtime>=20){
+                serverParent.broadcast("§cs3 end",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                serverParent.broadcast("// Game Over! Players Win!",serverParent.getIDbyChannel(this),serverParent.serverDummy,null);
+                break;
+            }
+            else{
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignore) {}
+                runtime++;
+            }
+        }
+        System.out.println("Game ended");
+        gameRunning=false;
+        gameThread=null;
+        if(gameThread == null) System.out.println("Game thread ended");
+        reset();
+    }
+
 
     public static boolean isTouching(int x1, int y1, int x2, int y2) {
         int halfSize = 10; // 10 / 2
@@ -221,7 +276,12 @@ public class CounterStrikeChannel extends ChannelObject{
     public void reset(){
         playerCopy.clear();
         chaser=null;
-        players.clear();
+        clearPlayers();
+
+        List<ClientObject> myClients = serverParent.getClientsInChannel(this);
+        for(ClientObject c : myClients){
+            serverParent.sendWelcomeMessages(c, this);
+        }
     }
     public void loadMapFromFile(String path) throws IOException {
         BufferedImage img = ImageIO.read(new File(path));
@@ -330,17 +390,66 @@ public class CounterStrikeChannel extends ChannelObject{
         }
     }
 
+    public int firstEmptyPlayerSlot(){
+        int firstEmpty = -1;
+
+        for (int i = 0; i < players.length; i++) {
+            if (players[i] == null) {
+                firstEmpty = i;
+                break;
+            }
+        }
+        return firstEmpty;
+    }
+    public int firstFilledPlayerSlot(){
+        int firstFilled = -1;
+
+        for (int i = 0; i < players.length; i++) {
+            if (players[i] != null) {
+                firstFilled = i;
+                break;
+            }
+        }
+        return firstFilled;
+    }
+    public int getPlayerIndex(PlayerObject player){
+        int index=-1;
+
+        for (int i = 0; i < players.length; i++) {
+            if (players[i] == player) {
+                index = i;
+                break;
+            }
+        }
+        return index;
+    }
+    public int filledPlayerLength(){
+        int count=0;
+
+        for (int i = 0; i < players.length; i++) {
+            if (players[i] != null) {
+                count++;
+            }
+        }
+        return count;
+    }
+    public void clearPlayers(){
+        Arrays.fill(players, null);
+    }
+
     public class PlayerObject {
         public int x;
         public int y;
         public boolean chaser=false;
         public Color c;
+        public ClientObject associatedClient;
 
-        public PlayerObject(Point position, Color c, boolean chaser) {
+        public PlayerObject(Point position, Color c, boolean chaser, ClientObject associatedClient) {
             this.x = position.x;
             this.y = position.y;
             this.c = c;
             this.chaser = chaser;
+            this.associatedClient=associatedClient;
         }
 
         public void move(int x, int y) {

@@ -79,7 +79,7 @@ public class PixelChannel extends ChannelObject{
     }
 
     @Override
-    public String[] getWelcomeMessages(){
+    public String[] getWelcomeMessages(ClientObject clientObject){
         if (welcomeMessages == null) welcomeMessages = new String[0];
 
         String[] result = new String[welcomeMessages.length + 1];

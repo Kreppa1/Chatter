@@ -26,7 +26,7 @@ public class ChannelObject{
         else return "";
         return message+".";
     }
-    public String[] getWelcomeMessages(){
+    public String[] getWelcomeMessages(ClientObject clientObject){
         return welcomeMessages;
     }
 }

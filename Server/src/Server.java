@@ -52,7 +52,7 @@ public class Server {
         channels.add(new ChannelObject("Main",true,true, new String[]{"Welcome to the Main channel, everyone can chat here.","!! Beware off diddy bluds!"}));
         channels.add(new ChannelObject("Chat",true,false, new String[]{"This is a channel can only be used by non anonym users"}));
         channels.add(new PixelChannel("R/Placeoderso",false,false,new String[]{"This is a Pixel-Channel, here you can place pixels on the canvas, as long as your client supports it."},26,20));
-        channels.add(new CounterStrikeChannel(this,"CS",false,false,null,true,640,640, "Server/src/maps/map3.png"));
+        channels.add(new CounterStrikeChannel(this,"CS",false,false,null,true,640,640, "Server/src/maps/sigma.png"));
         System.out.println("Channels initialized.");
     }
 
@@ -323,15 +323,7 @@ public class Server {
         broadcast("// User disconnected from your channel: "+client.getDisplayName(),oldChannel,serverDummy,client);
         broadcast("// User entered your channel: "+client.getDisplayName(), client.clientChannel,serverDummy,client);
         whisper("// Channel switched: "+getChannelByID(client.clientChannel).channelName+" ("+client.clientChannel+")",client,serverDummy);
-        String[] welcomeMessages=channelObject.getWelcomeMessages();
-        if(welcomeMessages!=null){
-            for (String welcomeMessage : welcomeMessages) {
-                if (welcomeMessage != null) {
-                    System.out.println(welcomeMessage);
-                    whisper(welcomeMessage, client, serverDummy);
-                }
-            }
-        }
+        sendWelcomeMessages(client,channelObject);
     }
     public void kickClientFromChannel(ClientObject client, String msg){
         int oldChannel=client.clientChannel;
@@ -364,16 +356,23 @@ public class Server {
         broadcast("// User disconnected from your channel: "+target.getDisplayName(),oldChannel,serverDummy,target);
         broadcast("// User entered your channel: "+target.getDisplayName(), client.clientChannel,serverDummy,target);
         whisper("// You were moved: "+getChannelByID(target.clientChannel).channelName+" ("+target.clientChannel+")",target,serverDummy);
-        String[] welcomeMessages=channelObject.getWelcomeMessages();
+        sendWelcomeMessages(target,channelObject);
+    }
+
+
+    public void sendWelcomeMessages(ClientObject client, ChannelObject channelObject){
+        String[] welcomeMessages=channelObject.getWelcomeMessages(client);
         if(welcomeMessages!=null){
             for (String welcomeMessage : welcomeMessages) {
                 if (welcomeMessage != null) {
                     System.out.println(welcomeMessage);
-                    whisper(welcomeMessage, target, serverDummy);
+                    whisper(welcomeMessage, client, serverDummy);
                 }
             }
         }
     }
+
+
     public void emptyChannel(int channelID,String msg){
         for(ClientObject c : clients){
             if(c.clientChannel==channelID) kickClientFromChannel(c,msg);
@@ -428,6 +427,15 @@ public class Server {
             System.out.println("(WHISPER from:\""+sender.getDisplayName()+"\", to:\""+target.getDisplayName()+"\") "+msg);
         }
         catch (IOException ignore){}
+    }
+
+    public List<ClientObject> getClientsInChannel(ChannelObject channelObject){
+        int channelID=getIDbyChannel(channelObject);
+        List<ClientObject> clientsInChannel=new ArrayList<>();
+        for(ClientObject c : clients){
+            if (c.clientChannel==channelID) clientsInChannel.add(c);
+        }
+        return clientsInChannel;
     }
 
 
