@@ -52,7 +52,7 @@ public class Server {
         channels.add(new ChannelObject("Main",true,true, new String[]{"Welcome to the Main channel, everyone can chat here.","!! Beware off diddy bluds!"}));
         channels.add(new ChannelObject("Chat",true,false, new String[]{"This is a channel can only be used by non anonym users"}));
         channels.add(new PixelChannel("R/Placeoderso",false,false,new String[]{"This is a Pixel-Channel, here you can place pixels on the canvas, as long as your client supports it."},26,20));
-        channels.add(new CounterStrikeChannel(this,"CS",false,false,null,true,640,640, "Server/src/maps/sigma.png"));
+        channels.add(new CounterStrikeChannel(this,"CS",false,false,null,true,640,640, "Server/src/maps/CS3MAP2.png"));
         System.out.println("Channels initialized.");
     }
 

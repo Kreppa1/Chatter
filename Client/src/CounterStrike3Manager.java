@@ -19,7 +19,7 @@ public class CounterStrike3Manager {
     private double moveX = 0;
     private double moveY = 0;
     private final int MOVEMENT_SPEED = 5;
-    int PLAYER_SIZE = 20;
+    int PLAYER_SIZE = 10;
 
     private int mapGridSize;
     private Color[][] mapColors;
